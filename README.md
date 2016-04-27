@@ -8,4 +8,4 @@ The first version of the scale is too sensitive to Pippa's position on the scale
 - BillOfMaterials.ods = parts list, with suppliers and prices.
 - MechanicalNotes.odp = diagrams of any complicated physical parts.
 - ProjectMath.odp = mathematical background to the formulas in the code.
-- ScaleCalibrationFirstTry.ods = Spreadsheet from when I calibrated the initial design (the one that uses only 1 amplifier)
+- Calculations.ods = Spreadsheet of testing and design measurements.
