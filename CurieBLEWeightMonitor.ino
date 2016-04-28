@@ -18,11 +18,15 @@
  * PIN_HX711_LL_* = CLock and Data pins for the Lower Left Amplifier.
  *    Lower Left as you look down on the scale.
  * PIN_HX711_LR_* = same for Lower Right
+ * PIN_HX711_UL_* = same for Upper Left
  */
 const int PIN_HX711_LL_CLK = 2;
 const int PIN_HX711_LL_DOUT = 3;
 const int PIN_HX711_LR_CLK = 4;
 const int PIN_HX711_LR_DOUT = 5;
+const int PIN_HX711_UL_CLK = 6;
+const int PIN_HX711_UL_DOUT = 7;
+//TODO Consider going with bunches of arrays of 4 elements and four const indices.
 
 /*
  * LL_OFFSET = zero-load offset for the Lower Left Load Sensor,
@@ -37,9 +41,13 @@ const float LL_SCALE = 10831.330;
  
 const long LR_OFFSET = 260249L;
 const float LR_SCALE = 10831.330;
+ 
+const long UL_OFFSET = 260249L;
+const float UL_SCALE = 10831.330;
 
 HX711 llHx711(PIN_HX711_LL_DOUT, PIN_HX711_LL_CLK);
 HX711 lrHx711(PIN_HX711_LR_DOUT, PIN_HX711_LR_CLK);
+HX711 ulHx711(PIN_HX711_UL_DOUT, PIN_HX711_UL_CLK);
 
 void setup() {
   Serial.begin(9600);
@@ -53,12 +61,15 @@ void setup() {
   
   lrHx711.set_scale(LR_SCALE);
   lrHx711.set_offset(LR_OFFSET);
+  
+  ulHx711.set_scale(UL_SCALE);
+  ulHx711.set_offset(UL_OFFSET);
 
 }
 
 void loop() {
   // For now we're testing and calibrating, so just read the raw value.
-  float value = lrHx711.read();
+  float value = ulHx711.read();
   Serial.println(value, 5);
   delay(2000);
 }
