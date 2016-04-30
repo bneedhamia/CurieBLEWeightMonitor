@@ -78,7 +78,7 @@ void setup() {
 
 void loop() {
   // For now we're testing and calibrating, so just read the raw value.
-  float value = urHx711.read();
+  float value = ulHx711.read();
   Serial.println(value, 5);
   delay(2000);
 }
