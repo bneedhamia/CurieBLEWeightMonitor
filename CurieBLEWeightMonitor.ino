@@ -57,8 +57,8 @@ HX711 urHx711(PIN_HX711_UR_DOUT, PIN_HX711_UR_CLK);
 
 void setup() {
   Serial.begin(9600);
-  Serial.println("Raw HX711 output");
-
+  Serial.println("Raw LL, UL, UR, LR");
+  
   // Once we've calibrated the scale, we want to load those calibrations
   // into each Amplifier object.
   
@@ -77,8 +77,25 @@ void setup() {
 }
 
 void loop() {
-  // For now we're testing and calibrating, so just read the raw value.
-  float value = urHx711.read();
-  Serial.println(value, 5);
+  float value = 0;
+
   delay(2000);
+
+  // For now we're testing and calibrating, so just read the raw values
+  
+  value = llHx711.read();
+  Serial.print(value, 5);
+  Serial.print(",");
+  
+  value = ulHx711.read();
+  Serial.print(value, 5);
+  Serial.print(",");
+  
+  value = urHx711.read();
+  Serial.print(value, 5);
+  Serial.print(",");
+  
+  value = lrHx711.read();
+  Serial.println(value, 5);
+  
 }
