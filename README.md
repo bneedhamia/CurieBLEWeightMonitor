@@ -10,3 +10,4 @@ The redesigned circuit is running. I'm editing the 3D printed hold-downs for the
 - ProjectMath.odp = mathematical background to the formulas in the code.
 - Calculations.ods = Spreadsheet of testing and design measurements.
 - loadsensorholder.FCStd = FreeCAD file for 3D printing hold-downs for the Load Sensors.
+- loadsensorholder.stl = the corresponding STL file, which you can print from a variety of 3D printers.
