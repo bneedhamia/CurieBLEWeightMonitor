@@ -1,7 +1,7 @@
 # CurieBLEWeightMonitor
 Arduino 101 (Curie) Sketch to continuously report my dog's weight using load sensors and Bluetooth Low Energy (BLE).
 ## Current Status
-The redesigned circuit is running. I'm editing the 3D printed hold-downs for the Load Sensors, then need to write the Sketch that calculates weight and center of gravity. See ProjectDiary.odt for the progress on the project.
+The redesigned circuit is running. The Load Sensor holder design is finished. I'm editing the 3D printed Centering Guide, then need to write the Sketch that calculates weight and center of gravity. See ProjectDiary.odt for the progress on the project.
 ## Files
 - ProjectDiary.odt = day-to-day diary of the progress of the project. Useful to see how the project unfolded over time.
 - WeightScale.fzz = Fritzing circuit
@@ -11,3 +11,4 @@ The redesigned circuit is running. I'm editing the 3D printed hold-downs for the
 - Calculations.ods = Spreadsheet of testing and design measurements.
 - loadsensorholder.FCStd = FreeCAD file for 3D printing hold-downs for the Load Sensors.
 - loadsensorholder.stl = the corresponding STL file, which you can print from a variety of 3D printers.
+- centeringguide.FCStd, .stl = FreeCAD and STL files for the nail centering guide to align the top and bottom plywood pieces.
