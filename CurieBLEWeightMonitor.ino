@@ -17,7 +17,7 @@
  *  for calibration.
  * Comment out this line to run the normal scale software.
  */
-#define CALIBRATE_SCALE 1
+//#define CALIBRATE_SCALE 1
 
 /*
  * I/O pins:
@@ -46,6 +46,14 @@ float values[SAMPLES_PER_READING];    // individual readings to do statistics on
 #endif
 
 /*
+ * MS_PER_WEIGHT_SAMPLE = time (ms) between reported samples of weight.
+ * The shorter this time is, the more data will be uploaded.
+ * The longer this time is, the more likely we'll miss some movement.
+ */
+const unsigned long MS_PER_WEIGHT_SAMPLE = 3000L;
+const int SAMPLES_PER_WEIGHT = 5;  // number of samples per weight reading.
+
+/*
  * UR_OFFSET = zero-load offset for the Upper Right Load Sensor,
  *   calculated from CALIBRATE_SCALE with nothing, not even the top plywood circle,
  *   on the scale.
@@ -56,23 +64,63 @@ float values[SAMPLES_PER_READING];    // individual readings to do statistics on
  * etc.
  */
 
-const long UR_OFFSET = 260249L;
-const float UR_SCALE = 10831.330;
+const long UR_OFFSET = -61385L;
+const float UR_SCALE = 68956.376;
  
-const long LR_OFFSET = 260249L;
-const float LR_SCALE = 10831.330;
+const long LR_OFFSET = -89839L;
+const float LR_SCALE = 29606.447;
 
-const long UL_OFFSET = 260249L;
-const float UL_SCALE = 10831.330;
+const long UL_OFFSET = 13982L;
+const float UL_SCALE = 33977.364;
 
-const long LL_OFFSET = 260249L;
-const float LL_SCALE = 10831.330;
+const long LL_OFFSET = -17827L;
+const float LL_SCALE = 64018.729;
+
+/*
+ * Dimensions of the Load Sensor rectangle.
+ * For calculating center of gravity.
+ * Measured by hand from the assembled scale.
+ * 
+ * SCALE_MM_X = width (millimeters) between Lower-Left
+ * and Lower-Right Load Sensor buttons (the place where the load sits).
+ * 
+ * SCALE_MM_Y = height (millimeters) between Lower-Left
+ * and Upper-Left Load Sensor buttons.
+ */
+const float SCALE_MM_X = 708.0f; // (706 and 710)
+const float SCALE_MM_Y = 709.0f; // (710 and 708)
 
 // *Hx711 = controller for each HX711 Load Cell Amplifier
 HX711 llHx711(PIN_HX711_LL_DOUT, PIN_HX711_LL_CLK);
 HX711 lrHx711(PIN_HX711_LR_DOUT, PIN_HX711_LR_CLK);
 HX711 ulHx711(PIN_HX711_UL_DOUT, PIN_HX711_UL_CLK);
 HX711 urHx711(PIN_HX711_UR_DOUT, PIN_HX711_UR_CLK);
+
+/*
+ * *_kg = Weights (kg) read from each load sensor.
+ * total_kg = total weight (kg) of everything currently on the scale,
+ * including the top plywood circle.
+ */
+float ll_kg = 0.0;
+float lr_kg = 0.0;
+float ul_kg = 0.0;
+float ur_kg = 0.0;
+
+float total_kg = 0.0;
+
+/*
+ * total_cog_mm_x/y = Center of gravity (millimeters) of
+ * everything currently on the scale,
+ * including the top plywood circle.
+ */
+float total_cog_mm_x = 0.0;
+float total_cog_mm_y = 0.0;
+
+/*
+ * previous_weight_time_ms = Time (ms since reset) of the previous weight reading.
+ */
+unsigned long previous_weight_time_ms = 0L;
+
 
 void setup() {
   Serial.begin(9600);
@@ -88,7 +136,7 @@ void setup() {
   Serial.println(F("LR Average,LR Std Dev"));
 
 #else
-  // Set up to continuously report the scale output.
+  Serial.println(F("Scale running. Output in kg, mm x, mm y"));
      
   /*
    * Load the calibrations into each Amplifier object.
@@ -108,6 +156,8 @@ void setup() {
   
   urHx711.set_scale(UR_SCALE);
   urHx711.set_offset(UR_OFFSET);
+
+  previous_weight_time_ms = 0L;
 
 #endif
 
@@ -135,7 +185,23 @@ void loop() {
   
 #else
 
-  Serial.println(F("No normal code ready yet");
+  unsigned long now = millis();
+
+  // If it's time to process a sample, do it.
+  
+  if (now - previous_weight_time_ms > MS_PER_WEIGHT_SAMPLE) {
+    previous_weight_time_ms = now;
+    
+    readkg();  // load *_kg with the weight from the Load Cell Amplifiers
+    calculate_total_center_of_gravity();
+
+    Serial.print(total_kg, 2);
+    Serial.print(F(","));
+    Serial.print(total_cog_mm_x);
+    Serial.print(F(","));
+    Serial.print(total_cog_mm_y);
+    Serial.println();
+  }
   
 #endif
 }
@@ -177,4 +243,31 @@ void reportStatistics(HX711 *pHx) {
   Serial.print(stddev, 1);
 }
 #endif
+
+/*
+ * Reads the weight(kg) from each Load Cell Amplifier
+ * and copies the result into ll_kg, lr_kg, ur_kg, and lr_kg.
+ * 
+ * Calculates the weight of everything on the scale:
+ * plywood top circle, bed, bed cover, and possibly the dog.
+ */
+void readkg() {
+  ll_kg = llHx711.get_units(SAMPLES_PER_WEIGHT);
+  lr_kg = lrHx711.get_units(SAMPLES_PER_WEIGHT);
+  ul_kg = ulHx711.get_units(SAMPLES_PER_WEIGHT);
+  ur_kg = urHx711.get_units(SAMPLES_PER_WEIGHT);
+
+  total_kg = ll_kg + lr_kg + ul_kg + ur_kg;
+}
+
+/*
+ * Calculates the center of gravity of everything on the scale:
+ * plywood top circle, bed, bed cover, and possibly the dog.
+ */
+void calculate_total_center_of_gravity() {
+  // For the formula derivation, see the blog at https://needhamia.com/?p=750
+
+  total_cog_mm_x = SCALE_MM_X * (ur_kg + lr_kg) / total_kg;
+  total_cog_mm_y = SCALE_MM_Y * (ul_kg + ur_kg) / total_kg;
+}
 
