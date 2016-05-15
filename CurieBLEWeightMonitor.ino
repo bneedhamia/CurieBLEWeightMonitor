@@ -63,7 +63,7 @@
  *  Load Cell Amplifier values for calculating calibration.
  * Comment out this line to run the normal scale software.
  */
-//#define CALIBRATE_SCALE 1
+#define CALIBRATE_SCALE 1
 
 /*
  * I/O pins:
@@ -127,17 +127,17 @@ const char *BLE_LOCAL_NAME = "K9 Kilos";
  * LR_* = same for Lower Right
  */
 
-const long UL_OFFSET = 13982L;
-const float UL_SCALE_KG = 33977.364;
+const long UL_OFFSET = 19907L;
+const float UL_SCALE_KG = 45207.636;
 
-const long LL_OFFSET = -17827L;
-const float LL_SCALE_KG = 64018.729;
+const long LL_OFFSET = -22697L;
+const float LL_SCALE_KG = 49468.181;
 
-const long UR_OFFSET = -61385L;
-const float UR_SCALE_KG = 68956.376;
+const long UR_OFFSET = -61289L;
+const float UR_SCALE_KG = 60106.909;
  
-const long LR_OFFSET = -89839L;
-const float LR_SCALE_KG = 29606.447;
+const long LR_OFFSET = -90326L;
+const float LR_SCALE_KG = 44716;
 
 /*
  * Dimensions of the Load Sensor rectangle.
