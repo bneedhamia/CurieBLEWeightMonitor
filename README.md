@@ -1,8 +1,12 @@
 # CurieBLEWeightMonitor
 Arduino 101 (Curie) Sketch to continuously report my dog's weight using load sensors and Bluetooth Low Energy (BLE).
+The scale sends the total weight on the scale (plywood top, bed, bed cover, and possibly the dog), as well as the
+weight measured by each of the 4 Load Sensors. The individual Load Sensor values enable calculation of the center of
+gravity (where the dog is on the bed).
 ## Current Status
-The version 2 circuit is running. The 3D printed parts are finished and work great. I'm calibrating the scale.
-I have written the code to calculate gross weight and gross center of gravity. I am working on the BLE sending code. See ProjectDiary.odt for the progress on the project.
+The version 2 circuit is running. I'm calibrating the fully-assembled scale.
+The Arduino 101 Sketch periodically sends the total weight (kg) and weight (kg) per Load Sensor.
+ See ProjectDiary.odt for the progress on the project.
 ## Files
 - ProjectDiary.odt = day-to-day diary of the progress of the project. Useful to see how the project unfolded over time.
 - WeightScale.fzz = Fritzing circuit
