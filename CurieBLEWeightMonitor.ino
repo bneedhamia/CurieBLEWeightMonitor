@@ -139,10 +139,10 @@ const long LL_OFFSET = -22697L;
 const long UR_OFFSET = -61289L;
 const long LR_OFFSET = -90326L;
 
-const float UL_SCALE_KG = 45207.636;
-const float LL_SCALE_KG = 49468.181;
-const float UR_SCALE_KG = 60106.909;
-const float LR_SCALE_KG = 44716;
+const float UL_SCALE_KG = 52814.608;
+const float LL_SCALE_KG = 53901.565;
+const float UR_SCALE_KG = 45114.260;
+const float LR_SCALE_KG = 40808.347;
 
 /*
  * Dimensions of the Load Sensor rectangle.
