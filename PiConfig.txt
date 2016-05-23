@@ -1,0 +1,36 @@
+Configuration of my Raspberry Pi 3
+Out of the box
+Brad Needham
+Begun May 22, 2016
+
+Installed Noobs on a 16GB MiniSD card.
+Connected the Pi to an HDMI monitor, keyboard, and mouse.
+Booted.
+Selected Raspbian.
+Clicked WiFi, chose the hotspot to connect to and its password.
+Clicked Install.
+Once it rebooted, it came up as a graphical interface, logged in as pi.
+
+Tried to add a user, but not completely successfully:
+sudo adduser pip
+sudo adduser pip sudo
+sudo vi /etc/hostname /etc/hostname
+Changed hostname in those files from raspberrypi to doggate.
+Shutdown from the Gui didn't work.
+sudo shutdown -r now
+groups          (noted what groups the user pi is in)
+did a sudo adduser pip X for all X in those groups the user pi is in.
+Problem: for some reason, if I login as my user pip, I can't logout via Gui.
+
+Setup Raspberry Preferences:
+menu / preferences / Raspberry Pi Configuration...
+Selected the Localization tab
+ Locale: USA English
+ Timezone: US Pacific
+ Keyboard: US English
+ WiFi: US (probably should have done that before setting up Wifi)
+
+Quickly updated the time: sudo ntpd -qg
+Cloned github.com/bneedhamia/CurieBLEWeightMonitor so I can code on the Pi.
+
+
