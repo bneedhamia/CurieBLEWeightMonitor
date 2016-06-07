@@ -1,4 +1,4 @@
-Configuration of my Raspberry Pi 3
+﻿Configuration of my Raspberry Pi 3
 Out of the box
 Brad Needham
 Begun May 22, 2016
@@ -9,8 +9,9 @@ Booted.
 Selected Raspbian.
 Clicked WiFi, chose the hotspot to connect to and its password.
 Clicked Install.
-Once it rebooted, it came up as a graphical interface, logged in as pi.
+Once it rebooted, it came up as a graphical interface, auto-logged in as pi.
 
+(Didn't do this the second time)
 Tried to add a user, but not completely successfully:
 sudo adduser pip
 sudo adduser pip sudo
@@ -29,9 +30,18 @@ Selected the Localization tab
  Timezone: US Pacific
  Keyboard: US English
  WiFi: US (probably should have done that before setting up Wifi)
+Did the required reboot.
+
+Should set up wifi via the UI, because you need it for NTP to work, which is needed for browsing to work.
 
 Quickly updated the time: sudo ntpd -qg
-Cloned github.com/bneedhamia/CurieBLEWeightMonitor so I can code on the Pi.
+Oddly, that didn't seem to fix the date and time. Date returns May 27, 2016 4:57 PDT, which is way off.
+sudo date --set="Mon June 6 21:15:00 PDT 2016"
+rebooted.
+Browsing still didn't work. Noticed the wifi wasn't connected.
+Set up the WiFi SSID and password from the UI.
+
+In Documents, cloned https://github.com/bneedhamia/CurieBLEWeightMonitor so I can code on the Pi.
 
 Checked that the bluetooth service was active:
 pi@doggate:~/Documents/CurieBLEWeightMonitor $ systemctl status bluetooth
@@ -46,6 +56,8 @@ pi@doggate:~/Documents/CurieBLEWeightMonitor $ systemctl status bluetooth
 
 Checked the Python version: $ python --version
 Python 2.7.9
+
+STOPPED HERE
 
 Following instructions from a combination of two pages:
 http://www.elinux.org/RPi_Bluetooth_LE
