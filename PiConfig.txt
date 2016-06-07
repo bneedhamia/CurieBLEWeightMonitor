@@ -33,4 +33,173 @@ Selected the Localization tab
 Quickly updated the time: sudo ntpd -qg
 Cloned github.com/bneedhamia/CurieBLEWeightMonitor so I can code on the Pi.
 
+Checked that the bluetooth service was active:
+pi@doggate:~/Documents/CurieBLEWeightMonitor $ systemctl status bluetooth
+● bluetooth.service - Bluetooth service
+   Loaded: loaded (/lib/systemd/system/bluetooth.service; enabled)
+   Active: active (running) since Sun 2016-05-22 22:17:09 PDT; 1 weeks 6 days ago
+     Docs: man:bluetoothd(8)
+ Main PID: 763 (bluetoothd)
+   Status: "Running"
+   CGroup: /system.slice/bluetooth.service
+           └─763 /usr/lib/bluetooth/bluetoothd
+
+Checked the Python version: $ python --version
+Python 2.7.9
+
+Following instructions from a combination of two pages:
+http://www.elinux.org/RPi_Bluetooth_LE
+https://learn.adafruit.com/install-bluez-on-the-raspberry-pi/installation
+
+Installed bluepy from http://gethub.com/IanHarvey/bluepy
+That's the package recommended by the Linux Raspberry Pi page at
+http://www.elinux.org/RPi_Bluetooth_LE
+$ git clone https://github.com/IanHarvey/bluepy.git
+$ cd bluepy/bluepy
+$ make
+(failed)
+$ sudo apt-get install libdbus-1-dev libdbus-glib-1-dev libglib2.0-dev libical-dev libreadline-dev libudev-dev libusb-dev make
+Retried the make:
+$ make
+Succeeded.
+$ sudo hcitool lescan
+LE Scan ...
+98:4F:EE:0D:04:B1 K9 Kilos
+98:4F:EE:0D:04:B1 (unknown)
+C4:BE:84:24:5B:51 FitBark
+pi@doggate:~/Documents/bluepy/bluepy $ python btle.py 98:4F:EE:0D:04:B1
+Connecting to: 98:4F:EE:0D:04:B1, address type: public
+Service <uuid=Generic Attribute handleStart=8 handleEnd=8> :
+Traceback (most recent call last):
+  File "btle.py", line 687, in <module>
+    for ch in svc.getCharacteristics():
+  File "btle.py", line 106, in getCharacteristics
+    self.chars = self.peripheral.getCharacteristics(self.hndStart, self.hndEnd)
+  File "btle.py", line 420, in getCharacteristics
+    rsp = self._getResp('find')
+  File "btle.py", line 334, in _getResp
+    resp = self._waitResp(wantType + ['ntfy', 'ind'], timeout)
+  File "btle.py", line 296, in _waitResp
+    raise BTLEException(BTLEException.COMM_ERROR, "Error from Bluetooth stack (%s)" % errcode)
+__main__.BTLEException: Error from Bluetooth stack (comerr)
+pi@doggate:~/Documents/bluepy/bluepy $ sudo python btle.py 98:4F:EE:0D:04:B1]
+Connecting to: 98:4F:EE:0D:04:B1], address type: public
+Traceback (most recent call last):
+  File "btle.py", line 683, in <module>
+    conn = Peripheral(devAddr, addrType)
+  File "btle.py", line 318, in __init__
+    self.connect(deviceAddr, addrType, iface)
+  File "btle.py", line 367, in connect
+    "Failed to connect to peripheral %s, addr type: %s" % (addr, addrType))
+__main__.BTLEException: Failed to connect to peripheral 98:4F:EE:0D:04:B1], addr type: public
+pi@doggate:~/Documents/bluepy/bluepy $ 
+
+So it seems I don't have the right version of bluez installed.
+
+$ uname -a
+Linux doggate 4.4.9-v7+ #884 SMP Fri May 6 17:28:59 BST 2016 armv7l GNU/Linux
+
+$ dpkg -s bluez
+...Version: 5.23-2+rpi1...
+
+That version is slightly less than the 5.32 and 5.37 documented in the pages above.
+So I need to install the new one.
+
+The latest version shown at https://www.kernel.org/pub/linux/bluetooth/ is bluez-5.40.tar.xz
+Browsed to http://www.bluez.org/download/ and clicked on the User Space BlueZ Package link.
+$ mv ~/Downloads/bluez-5.40.tar.xz ~
+$ tar xvf bluez-5.40.tar.xz 
+$ rm bluez-5.40-tar.xz
+$ cd bluez-5.40
+$ sudo apt-get update
+$ sudo apt-get install -y libusb-dev libdbus-1-dev libglib2.0-dev libudev-dev libical-dev libreadline-dev
+$ ./configure
+(succeeded)
+$ make >~/make.log 2>&1
+Succeeded
+$ sudo make install
+Succeeded
+rebooted
+$ systemctl status bluetooth
+Shows it active and running.
+
+Enabling BLE features
+$ sudo vi /lib/systemd/system/bluetooth.service
+Added --experimental to the ExecStart line.
+reboot
+$ systemctl status bluetooth
+● bluetooth.service - Bluetooth service
+   Loaded: loaded (/lib/systemd/system/bluetooth.service; enabled)
+   Active: active (running) since Sun 2016-06-05 17:24:46 PDT; 2min 12s ago
+     Docs: man:bluetoothd(8)
+ Main PID: 755 (bluetoothd)
+   Status: "Running"
+   CGroup: /system.slice/bluetooth.service
+           └─755 /usr/local/libexec/bluetooth/bluetoothd --experimental
+This shows that the --experimental flag is on, and Bluetooth is running.
+
+Tested Python BLE:
+^Cpi@doggate:~/Documents/bluepy/bluepy $ python btle.py 98:4F:EE:0D:04:B1
+Connecting to: 98:4F:EE:0D:04:B1, address type: public
+Service <uuid=Generic Attribute handleStart=8 handleEnd=8> :
+Traceback (most recent call last):
+  File "btle.py", line 687, in <module>
+    for ch in svc.getCharacteristics():
+  File "btle.py", line 106, in getCharacteristics
+    self.chars = self.peripheral.getCharacteristics(self.hndStart, self.hndEnd)
+  File "btle.py", line 420, in getCharacteristics
+    rsp = self._getResp('find')
+  File "btle.py", line 334, in _getResp
+    resp = self._waitResp(wantType + ['ntfy', 'ind'], timeout)
+  File "btle.py", line 296, in _waitResp
+    raise BTLEException(BTLEException.COMM_ERROR, "Error from Bluetooth stack (%s)" % errcode)
+__main__.BTLEException: Error from Bluetooth stack (comerr)
+Which shows it isn't working correctly yet.
+
+$ sudo python btle.py 98:4F:EE:0D:04:B1
+Connecting to: 98:4F:EE:0D:04:B1, address type: public
+Traceback (most recent call last):
+  File "btle.py", line 683, in <module>
+    conn = Peripheral(devAddr, addrType)
+  File "btle.py", line 318, in __init__
+    self.connect(deviceAddr, addrType, iface)
+  File "btle.py", line 367, in connect
+    "Failed to connect to peripheral %s, addr type: %s" % (addr, addrType))
+__main__.BTLEException: Failed to connect to peripheral 98:4F:EE:0D:04:B1, addr type: public
+Not quite sure whether that means that the stack has problems or whether the address I gave wasn't good.
+
+Curiously, rerunning the python command produced different output this time:
+$ python btle.py 98:4F:EE:0D:04:B1
+Connecting to: 98:4F:EE:0D:04:B1, address type: public
+Service <uuid=Generic Attribute handleStart=8 handleEnd=8> :
+Traceback (most recent call last):
+  File "btle.py", line 697, in <module>
+    conn.disconnect()
+  File "btle.py", line 375, in disconnect
+    self._writeCmd("disc\n")
+  File "btle.py", line 231, in _writeCmd
+    self._helper.stdin.write(cmd)
+IOError: [Errno 32] Broken pipe
+
+Went to a third source of "how to" to add BLE support: http://www.instructables.com/id/Control-Bluetooth-LE-Devices-From-A-Raspberry-Pi/?ALLSTEPS
+
+$ sudo apt-get --purge remove bluez
+$ cd ~/bluez-5.40
+$ export LDFLAGS=-lrt
+$ ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-library -disable-systemd
+$ make >make.log 2>&1
+Success
+$ sudo make install
+Success
+$ ls -l /usr/bin/gattool  (oops. I misspelled it, so I can't know if it was already there)
+ls: cannot access /usr/bin/gattool: No such file or directory
+$ sudo cp attrib/gatttool /usr/bin/
+rebooted
+
+Oh, great. It seems the uninstall of bluez has uninstalled more than intended:
+ $ systemctl status bluetooth
+● bluetooth.service
+   Loaded: not-found (Reason: No such file or directory)
+   Active: inactive (dead)
+hciconfig returns NO DEVICES. Ugh.
 
