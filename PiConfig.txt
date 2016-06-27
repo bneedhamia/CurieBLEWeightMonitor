@@ -11,18 +11,6 @@ Clicked WiFi, chose the hotspot to connect to and its password.
 Clicked Install.
 Once it rebooted, it came up as a graphical interface, auto-logged in as pi.
 
-(Didn't do this the second time)
-Tried to add a user, but not completely successfully:
-sudo adduser pip
-sudo adduser pip sudo
-sudo vi /etc/hostname /etc/hostname
-Changed hostname in those files from raspberrypi to doggate.
-Shutdown from the Gui didn't work.
-sudo shutdown -r now
-groups          (noted what groups the user pi is in)
-did a sudo adduser pip X for all X in those groups the user pi is in.
-Problem: for some reason, if I login as my user pip, I can't logout via Gui.
-
 Setup Raspberry Preferences:
 menu / preferences / Raspberry Pi Configuration...
 Selected the Localization tab
@@ -38,8 +26,12 @@ Quickly updated the time: sudo ntpd -qg
 Oddly, that didn't seem to fix the date and time. Date returns May 27, 2016 4:57 PDT, which is way off.
 sudo date --set="Mon June 6 21:15:00 PDT 2016"
 rebooted.
-Browsing still didn't work. Noticed the wifi wasn't connected.
+Browsing still didn't work. Noticed the wifi wasn't connected, which explains why the ntp update didn't work.
 Set up the WiFi SSID and password from the UI.
+
+Set up git:
+$ git config --global user.name "Bradford Needham"
+$ git config --global user.email bneedhamia@gmail.com
 
 In Documents, cloned https://github.com/bneedhamia/CurieBLEWeightMonitor so I can code on the Pi.
 
@@ -57,7 +49,232 @@ pi@doggate:~/Documents/CurieBLEWeightMonitor $ systemctl status bluetooth
 Checked the Python version: $ python --version
 Python 2.7.9
 
-STOPPED HERE
+Checked whether the BLE stack works - it doesn't connect.
+pi@raspberrypi:~ $ sudo hcitool lescan
+LE Scan ...
+98:4F:EE:0D:04:B1 K9 Kilos
+98:4F:EE:0D:04:B1 (unknown)
+^Cpi@raspberrypi:~ $ sudo gatttool -b 98:4F:EE:0D:04:B1 -I
+[98:4F:EE:0D:04:B1][LE]> connect
+Attempting to connect to 98:4F:EE:0D:04:B1
+Error: connect error: Connection timed out (110)
+[98:4F:EE:0D:04:B1][LE]> disconnect
+[98:4F:EE:0D:04:B1][LE]> exit
+pi@raspberrypi:~ $ 
+
+Checked the version of bluez (the Bluetooth stack):
+pi@raspberrypi:~ $ dpkg -s bluez
+Package: bluez
+Status: install ok installed
+Priority: optional
+Section: admin
+Installed-Size: 2588
+Maintainer: Debian Bluetooth Maintainers <pkg-bluetooth-maintainers@lists.alioth.debian.org>
+Architecture: armhf
+Multi-Arch: foreign
+Version: 5.23-2+rpi2
+Replaces: bluez-audio (<= 3.36-3), bluez-input, bluez-network, bluez-serial, bluez-utils (<= 3.36-3), udev (<< 170-1)
+Depends: libc6 (>= 2.15), libdbus-1-3 (>= 1.1.1), libglib2.0-0 (>= 2.28.0), libreadline6 (>= 6.0), libudev1 (>= 196), init-system-helpers (>= 1.18~), kmod, udev (>= 170-1), lsb-base, dbus
+Breaks: udev (<< 170-1)
+Conflicts: bluez-audio (<= 3.36-3), bluez-utils (<= 3.36-3)
+Conffiles:
+ /etc/bluetooth/input.conf 9f85017f861ac34d983fa76fa715f9c3
+ /etc/bluetooth/main.conf 297ad1bff9ec02f760eb6b5b7bf48e74
+ /etc/bluetooth/network.conf 0c7497c405b963382ff71789d0730abd
+ /etc/bluetooth/proximity.conf b75823a140e00905d41465c380bf89fe
+ /etc/dbus-1/system.d/bluetooth.conf 98bb1c2cf393ac16f0ba3bb0153a4f30
+ /etc/default/bluetooth 1e25cf981f29147187311b94f8e0ea89
+ /etc/init.d/bluetooth 1d503f26c72a83c43b90422ec5907626
+Description: Bluetooth tools and daemons
+ This package contains tools and system daemons for using Bluetooth devices.
+ .
+ BlueZ is the official Linux Bluetooth protocol stack. It is an Open Source
+ project distributed under GNU General Public License (GPL).
+Homepage: http://www.bluez.org
+pi@raspberrypi:~ $ 
+
+So it seems I don't have the right version of bluez installed.
+Followed instructions at https://learn.adafruit.com/install-bluez-on-the-raspberry-pi/installation
+and http://www.jaredwolff.com/blog/get-started-with-bluetooth-low-energy/
+
+The latest version shown at https://www.kernel.org/pub/linux/bluetooth/ is bluez-5.40.tar.xz
+Browsed to http://www.bluez.org/download/ and clicked on the User Space BlueZ Package link.
+$ cd Downloads
+$ tar xvf bluez-5.40.tar.xz
+$ rm bluez-5.40-tar.xz
+$ mv bluez-5.40/ ~
+$ cd ~/bluez-5.40
+$ sudo apt-get update
+$ sudo apt-get install -y libusb-dev libdbus-1-dev libglib2.0-dev libudev-dev libical-dev libreadline-dev
+$ ./configure
+(succeeded)
+$ make >~/make.log 2>&1  (this takes several minutes)
+Succeeded - no errors.
+$ sudo make install
+Succeeded
+I rebooted the Pi.
+
+Just as JaredWolff says, the install didn't copy gatttool:
+pi@raspberrypi:~ $ sudo ls -l /usr/local/bin/gat*
+ls: cannot access /usr/local/bin/gat*: No such file or directory
+pi@raspberrypi:~ $
+So I copied it, per his instructions:
+$ sudo cp attrib/gatttool /usr/local/bin/
+
+$ systemctl status bluetooth
+Shows it active and running.
+
+Checked that the Bluetooth service is installed and running:
+pi@raspberrypi:~/bluez-5.40 $ systemctl status bluetooth
+● bluetooth.service - Bluetooth service
+   Loaded: loaded (/lib/systemd/system/bluetooth.service; enabled)
+   Active: active (running) since Sun 2016-06-26 15:45:31 PDT; 10min ago
+     Docs: man:bluetoothd(8)
+ Main PID: 716 (bluetoothd)
+   Status: "Running"
+   CGroup: /system.slice/bluetooth.service
+           └─716 /usr/local/libexec/bluetooth/bluetoothd
+pi@raspberrypi:~/bluez-5.40 $ 
+
+Tested whether I could read a gatt from my BLE device via commands. It worked fine.
+pi@raspberrypi:~/bluez-5.40 $ sudo hcitool lescan
+LE Scan ...
+98:4F:EE:0D:04:B1 K9 Kilos
+98:4F:EE:0D:04:B1 (unknown)
+^Cpi@raspberrypi:~/bluez-5.40 $ sudo gatttool -b 98:4F:EE:0D:04:B1 -I
+[98:4F:EE:0D:04:B1][LE]> connect
+Attempting to connect to 98:4F:EE:0D:04:B1
+Connection successful
+[98:4F:EE:0D:04:B1][LE]> char-desc
+handle: 0x0001, uuid: 00002800-0000-1000-8000-00805f9b34fb
+handle: 0x0002, uuid: 00002803-0000-1000-8000-00805f9b34fb
+handle: 0x0003, uuid: 00002a00-0000-1000-8000-00805f9b34fb
+handle: 0x0004, uuid: 00002803-0000-1000-8000-00805f9b34fb
+handle: 0x0005, uuid: 00002a01-0000-1000-8000-00805f9b34fb
+handle: 0x0006, uuid: 00002803-0000-1000-8000-00805f9b34fb
+handle: 0x0007, uuid: 00002a04-0000-1000-8000-00805f9b34fb
+handle: 0x0008, uuid: 00002800-0000-1000-8000-00805f9b34fb
+handle: 0x0009, uuid: 00002800-0000-1000-8000-00805f9b34fb
+handle: 0x000a, uuid: 00002803-0000-1000-8000-00805f9b34fb
+handle: 0x000b, uuid: 00002a9e-0000-1000-8000-00805f9b34fb <-- this is the Weight Feature gatt
+handle: 0x000c, uuid: 00002902-0000-1000-8000-00805f9b34fb
+handle: 0x000d, uuid: 00002803-0000-1000-8000-00805f9b34fb
+handle: 0x000e, uuid: 00002a9d-0000-1000-8000-00805f9b34fb
+handle: 0x000f, uuid: 00002902-0000-1000-8000-00805f9b34fb
+[98:4F:EE:0D:04:B1][LE]> char-read-hnd 0001
+Characteristic value/descriptor: 00 18 
+[98:4F:EE:0D:04:B1][LE]> char-read-hnd 0002
+Characteristic value/descriptor: 02 03 00 00 2a 
+[98:4F:EE:0D:04:B1][LE]> exit
+
+Now looking for how to install and test Node.js
+
+Node.js is installed and doesn't need to be updated.
+pi@raspberrypi:~ $ node -v
+v0.10.29
+Brought it up to date:
+$ sudo apt-get install node  <--- DON'T do this. That gets an old node radio package.
+pi@raspberrypi:~ $ sudo apt-get install nodejs <-- not necessary. 0.10.29 seems to be the current version.
+Reading package lists... Done
+Building dependency tree       
+Reading state information... Done
+nodejs is already the newest version.
+nodejs set to manually installed.
+0 upgraded, 0 newly installed, 0 to remove and 47 not upgraded.
+pi@raspberrypi:~ $ pi@raspberrypi:~ $ nodejs -v
+v0.10.29
+
+I don't seem to have npm installed:
+pi@raspberrypi:~ $ sudo npm install noble
+sudo: npm: command not found
+pi@raspberrypi:~ $ npm
+bash: npm: command not found
+pi@raspberrypi:~ $ 
+
+Need to start over in my installation of nodejs:
+sudo apt-get --purge remove node
+sudo apt-get --purge remove nodejs-legacy
+sudo apt-get --purge remove nodejs
+
+I then followed https://www.npmjs.com/package/raspberry
+$ sudo apt-get update
+$ sudo apt-get upgrade
+$ sudo apt-get install nodejs npm
+$ sudo apt-get install nodejs-legacy (makes 'node' a synonym for 'nodejs')
+reboot
+pi@raspberrypi:~ $ node -v
+v0.10.29
+pi@raspberrypi:~ $ npm -v
+1.4.21
+
+To install a Node.js BLE package, I followed instructions at https://github.com/sandeepmistry/noble
+$ sudo apt-get install bluetooth bluez libbluetooth-dev libudev-dev
+$ sudo npm install -g noble
+Error because it wants node v 0.12.x, and I have 0.10.29
+
+Looking for how to get a newer version of Node.js
+Trying https://nodejs.org/en/download/package-manager/#debian-and-ubuntu-based-linux-distributions
+which SandeepMistry pointed to.
+$ curl -sL https://deb.nodesource.com/setup_4.x | sudo -E bash -
+$ sudo apt-get install -y nodejs
+
+Now everything seems set up:
+pi@raspberrypi:~ $ node -v
+v4.4.6
+pi@raspberrypi:~ $ npm -v
+2.15.5
+pi@raspberrypi:~ $ sudo node -v
+v4.4.6
+pi@raspberrypi:~ $ sudo npm -v
+2.15.5
+pi@raspberrypi:~ $ 
+Reboot, just out of superstition.
+Retried
+$ sudo npm install -g noble  <--- DON'T do this. It doesn't work.
+Got a number of errors about root not having access to obviously-root folders (/root/.node-gyp/4.4.6)
+Tried
+$ npm install noble (which is what the original instructions said to do)
+Succeeded
+
+Tried to include Noble. Failed. - a bit of a dilemma, since running as me says it can't get to the adapter
+and running as root fails to have noble installed.
+
+Tried:
+$ sudo npm install noble (to make Noble accessible to root) IT FAILED.
+Found the problem is sudo and the script, causing the script to try to work as 'nobody'.
+Logged in as root and did
+# npm install noble
+That worked.
+
+Running node as root still doesn't work:
+pi@raspberrypi:~ $ sudo node
+> var noble = require('noble');
+undefined
+> pi@raspberrypi:~ $ 
+Rebooting didn't help.
+
+
+
+
+
+
+
+
+
+
+============= Python stuff I no longer do
+
+(Didn't do this the second time)
+Tried to add a user, but not completely successfully:
+sudo adduser pip
+sudo adduser pip sudo
+sudo vi /etc/hostname /etc/hostname
+Changed hostname in those files from raspberrypi to doggate.
+Shutdown from the Gui didn't work.
+sudo shutdown -r now
+groups          (noted what groups the user pi is in)
+did a sudo adduser pip X for all X in those groups the user pi is in.
+Problem: for some reason, if I login as my user pip, I can't logout via Gui.
 
 Following instructions from a combination of two pages:
 http://www.elinux.org/RPi_Bluetooth_LE
@@ -106,50 +323,6 @@ Traceback (most recent call last):
 __main__.BTLEException: Failed to connect to peripheral 98:4F:EE:0D:04:B1], addr type: public
 pi@doggate:~/Documents/bluepy/bluepy $ 
 
-So it seems I don't have the right version of bluez installed.
-
-$ uname -a
-Linux doggate 4.4.9-v7+ #884 SMP Fri May 6 17:28:59 BST 2016 armv7l GNU/Linux
-
-$ dpkg -s bluez
-...Version: 5.23-2+rpi1...
-
-That version is slightly less than the 5.32 and 5.37 documented in the pages above.
-So I need to install the new one.
-
-The latest version shown at https://www.kernel.org/pub/linux/bluetooth/ is bluez-5.40.tar.xz
-Browsed to http://www.bluez.org/download/ and clicked on the User Space BlueZ Package link.
-$ mv ~/Downloads/bluez-5.40.tar.xz ~
-$ tar xvf bluez-5.40.tar.xz 
-$ rm bluez-5.40-tar.xz
-$ cd bluez-5.40
-$ sudo apt-get update
-$ sudo apt-get install -y libusb-dev libdbus-1-dev libglib2.0-dev libudev-dev libical-dev libreadline-dev
-$ ./configure
-(succeeded)
-$ make >~/make.log 2>&1
-Succeeded
-$ sudo make install
-Succeeded
-rebooted
-$ systemctl status bluetooth
-Shows it active and running.
-
-Enabling BLE features
-$ sudo vi /lib/systemd/system/bluetooth.service
-Added --experimental to the ExecStart line.
-reboot
-$ systemctl status bluetooth
-● bluetooth.service - Bluetooth service
-   Loaded: loaded (/lib/systemd/system/bluetooth.service; enabled)
-   Active: active (running) since Sun 2016-06-05 17:24:46 PDT; 2min 12s ago
-     Docs: man:bluetoothd(8)
- Main PID: 755 (bluetoothd)
-   Status: "Running"
-   CGroup: /system.slice/bluetooth.service
-           └─755 /usr/local/libexec/bluetooth/bluetoothd --experimental
-This shows that the --experimental flag is on, and Bluetooth is running.
-
 Tested Python BLE:
 ^Cpi@doggate:~/Documents/bluepy/bluepy $ python btle.py 98:4F:EE:0D:04:B1
 Connecting to: 98:4F:EE:0D:04:B1, address type: public
@@ -195,7 +368,7 @@ IOError: [Errno 32] Broken pipe
 
 Went to a third source of "how to" to add BLE support: http://www.instructables.com/id/Control-Bluetooth-LE-Devices-From-A-Raspberry-Pi/?ALLSTEPS
 
-$ sudo apt-get --purge remove bluez
+$ sudo apt-get --purge remove bluez  <------ DON'T do this. It's a very bad idea.
 $ cd ~/bluez-5.40
 $ export LDFLAGS=-lrt
 $ ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-library -disable-systemd
@@ -214,4 +387,5 @@ Oh, great. It seems the uninstall of bluez has uninstalled more than intended:
    Loaded: not-found (Reason: No such file or directory)
    Active: inactive (dead)
 hciconfig returns NO DEVICES. Ugh.
+Decided to start over.
 
