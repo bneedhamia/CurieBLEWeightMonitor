@@ -253,6 +253,27 @@ undefined
 > pi@raspberrypi:~ $ 
 Rebooting didn't help.
 
+pi@raspberrypi:~ $ node
+> var noble = require('noble');
+noble warning: adapter state unauthorized, please run as root or with sudo
+               or see README for information on running without root/sudo:
+               https://github.com/sandeepmistry/noble#running-on-linux
+undefined
+> pi@raspberrypi:~ $ 
+
+$ sudo setcap cap_net_raw+eip $(eval readlink -f `which node`)
+Now running a normal node and trying to import 'noble' failed with 'undefined'.
+
+DOH. It turns out that doing that require() in interactive mode fails,
+but doing it in a script works fine.
+
+So I'm on my way. Using the test.js in the noble folder, I've been able to
+- find the K9 Kilos BLE device
+- find its Weight service
+- find its Weight Measurement gatt
+- dump the raw bytes of the weight measurement.
+
+
 
 
 
