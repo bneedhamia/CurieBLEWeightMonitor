@@ -1,132 +1,71 @@
-﻿Configuration of my Raspberry Pi 3
-Out of the box
+﻿Configuration of my Raspberry Pi 3 for Node.js BLE development
 Brad Needham
-Begun May 22, 2016
 
-Installed Noobs on a 16GB MiniSD card.
-Connected the Pi to an HDMI monitor, keyboard, and mouse.
-Booted.
-Selected Raspbian.
-Clicked WiFi, chose the hotspot to connect to and its password.
-Clicked Install.
-Once it rebooted, it came up as a graphical interface, auto-logged in as pi.
+Install Raspbian:
+Install Noobs on a 16GB MiniSD card for the Pi.
+Connect the Pi to an HDMI monitor, keyboard, and mouse.
+Connect the Pi to power.
+Select Raspbian.
+Click WiFi and choose the hotspot to connect to and its password.
+Click Install.
+Wait for Raspbian to install and reboot.
+Once it reboots, it will come up as a graphical interface, auto-logged in as pi.
 
 Setup Raspberry Preferences:
 menu / preferences / Raspberry Pi Configuration...
-Selected the Localization tab
+Select the Localization tab
  Locale: USA English
  Timezone: US Pacific
  Keyboard: US English
- WiFi: US (probably should have done that before setting up Wifi)
-Did the required reboot.
+ WiFi: US
+ Click OK
+Agree to reboot.
 
-Should set up wifi via the UI, because you need it for NTP to work, which is needed for browsing to work.
+(Re)Setup the Wifi:
+Click the networking icon: the two-screen icon in the upper right of the screen.
+Wait for it to scan for Access points.
+Click on the one you want to connect to.
+Enter the password for that WiFi access point.
+Wait for the WiFi icon to appear, then wait for that icon to become steady (vs. blinking).
 
-Quickly updated the time: sudo ntpd -qg
-Oddly, that didn't seem to fix the date and time. Date returns May 27, 2016 4:57 PDT, which is way off.
-sudo date --set="Mon June 6 21:15:00 PDT 2016"
-rebooted.
-Browsing still didn't work. Noticed the wifi wasn't connected, which explains why the ntp update didn't work.
-Set up the WiFi SSID and password from the UI.
+Force update of the date and time, so that network browsing will work:
+$ sudo ntpd -qg
+Double-check that the date and time in the upper-right of the screen is now correct.
+Open the Web Browser (earth and pointer icon) and check that you can view www.google.com
 
-Set up git:
-$ git config --global user.name "Bradford Needham"
-$ git config --global user.email bneedhamia@gmail.com
+Set up git and clone the CurieBLEWeightMonitor repository:
+$ git config --global user.name "your name"    (use your first and last name)
+$ git config --global user.email yourEmail@wherever  (use your email address)
+$ cd Documents
+$ git clone https://github.com/bneedhamia/CurieBLEWeightMonitor
 
-In Documents, cloned https://github.com/bneedhamia/CurieBLEWeightMonitor so I can code on the Pi.
-
-Checked that the bluetooth service was active:
-pi@doggate:~/Documents/CurieBLEWeightMonitor $ systemctl status bluetooth
-● bluetooth.service - Bluetooth service
-   Loaded: loaded (/lib/systemd/system/bluetooth.service; enabled)
-   Active: active (running) since Sun 2016-05-22 22:17:09 PDT; 1 weeks 6 days ago
-     Docs: man:bluetoothd(8)
- Main PID: 763 (bluetoothd)
-   Status: "Running"
-   CGroup: /system.slice/bluetooth.service
-           └─763 /usr/lib/bluetooth/bluetoothd
-
-Checked the Python version: $ python --version
-Python 2.7.9
-
-Checked whether the BLE stack works - it doesn't connect.
-pi@raspberrypi:~ $ sudo hcitool lescan
-LE Scan ...
-98:4F:EE:0D:04:B1 K9 Kilos
-98:4F:EE:0D:04:B1 (unknown)
-^Cpi@raspberrypi:~ $ sudo gatttool -b 98:4F:EE:0D:04:B1 -I
-[98:4F:EE:0D:04:B1][LE]> connect
-Attempting to connect to 98:4F:EE:0D:04:B1
-Error: connect error: Connection timed out (110)
-[98:4F:EE:0D:04:B1][LE]> disconnect
-[98:4F:EE:0D:04:B1][LE]> exit
-pi@raspberrypi:~ $ 
-
-Checked the version of bluez (the Bluetooth stack):
-pi@raspberrypi:~ $ dpkg -s bluez
-Package: bluez
-Status: install ok installed
-Priority: optional
-Section: admin
-Installed-Size: 2588
-Maintainer: Debian Bluetooth Maintainers <pkg-bluetooth-maintainers@lists.alioth.debian.org>
-Architecture: armhf
-Multi-Arch: foreign
-Version: 5.23-2+rpi2
-Replaces: bluez-audio (<= 3.36-3), bluez-input, bluez-network, bluez-serial, bluez-utils (<= 3.36-3), udev (<< 170-1)
-Depends: libc6 (>= 2.15), libdbus-1-3 (>= 1.1.1), libglib2.0-0 (>= 2.28.0), libreadline6 (>= 6.0), libudev1 (>= 196), init-system-helpers (>= 1.18~), kmod, udev (>= 170-1), lsb-base, dbus
-Breaks: udev (<< 170-1)
-Conflicts: bluez-audio (<= 3.36-3), bluez-utils (<= 3.36-3)
-Conffiles:
- /etc/bluetooth/input.conf 9f85017f861ac34d983fa76fa715f9c3
- /etc/bluetooth/main.conf 297ad1bff9ec02f760eb6b5b7bf48e74
- /etc/bluetooth/network.conf 0c7497c405b963382ff71789d0730abd
- /etc/bluetooth/proximity.conf b75823a140e00905d41465c380bf89fe
- /etc/dbus-1/system.d/bluetooth.conf 98bb1c2cf393ac16f0ba3bb0153a4f30
- /etc/default/bluetooth 1e25cf981f29147187311b94f8e0ea89
- /etc/init.d/bluetooth 1d503f26c72a83c43b90422ec5907626
-Description: Bluetooth tools and daemons
- This package contains tools and system daemons for using Bluetooth devices.
- .
- BlueZ is the official Linux Bluetooth protocol stack. It is an Open Source
- project distributed under GNU General Public License (GPL).
-Homepage: http://www.bluez.org
-pi@raspberrypi:~ $ 
-
-So it seems I don't have the right version of bluez installed.
-Followed instructions at https://learn.adafruit.com/install-bluez-on-the-raspberry-pi/installation
-and http://www.jaredwolff.com/blog/get-started-with-bluetooth-low-energy/
-
-The latest version shown at https://www.kernel.org/pub/linux/bluetooth/ is bluez-5.40.tar.xz
-Browsed to http://www.bluez.org/download/ and clicked on the User Space BlueZ Package link.
+Update the Bluetooth support package, bluez.  The instructions below are a combination of:
+- https://learn.adafruit.com/install-bluez-on-the-raspberry-pi/installation
+- http://www.jaredwolff.com/blog/get-started-with-bluetooth-low-energy/
+Browse to http://www.bluez.org/download/
+Click on the link under "User Space Bluez Package" labeled something like bluez-5.40.tar.xz
+Wait for that download to complete.
 $ cd Downloads
 $ tar xvf bluez-5.40.tar.xz
 $ rm bluez-5.40-tar.xz
-$ mv bluez-5.40/ ~
+$ mv bluez-5.40 ~
 $ cd ~/bluez-5.40
-$ sudo apt-get update
+$ sudo apt-get update  (this takes several minutes)
 $ sudo apt-get install -y libusb-dev libdbus-1-dev libglib2.0-dev libudev-dev libical-dev libreadline-dev
 $ ./configure
-(succeeded)
-$ make >~/make.log 2>&1  (this takes several minutes)
-Succeeded - no errors.
+$ make >~/make.log 2>&1  (this takes several minutes. Examine ~/make.log for errors.)
 $ sudo make install
-Succeeded
-I rebooted the Pi.
+Reboot.
 
-Just as JaredWolff says, the install didn't copy gatttool:
-pi@raspberrypi:~ $ sudo ls -l /usr/local/bin/gat*
+Just as JaredWolff says, the install didn't copy gatttool. Test and fix that:
+$ cd bluez-5.40 (or whatever your bluez version is)
+$ sudo ls -l /usr/local/bin/gat*
 ls: cannot access /usr/local/bin/gat*: No such file or directory
-pi@raspberrypi:~ $
-So I copied it, per his instructions:
 $ sudo cp attrib/gatttool /usr/local/bin/
 
+Check that the Bluetooth service is installed and running:
 $ systemctl status bluetooth
-Shows it active and running.
-
-Checked that the Bluetooth service is installed and running:
-pi@raspberrypi:~/bluez-5.40 $ systemctl status bluetooth
-● bluetooth.service - Bluetooth service
+  bluetooth.service - Bluetooth service
    Loaded: loaded (/lib/systemd/system/bluetooth.service; enabled)
    Active: active (running) since Sun 2016-06-26 15:45:31 PDT; 10min ago
      Docs: man:bluetoothd(8)
@@ -134,18 +73,19 @@ pi@raspberrypi:~/bluez-5.40 $ systemctl status bluetooth
    Status: "Running"
    CGroup: /system.slice/bluetooth.service
            └─716 /usr/local/libexec/bluetooth/bluetoothd
-pi@raspberrypi:~/bluez-5.40 $ 
 
-Tested whether I could read a gatt from my BLE device via commands. It worked fine.
-pi@raspberrypi:~/bluez-5.40 $ sudo hcitool lescan
+Test whether you can read a BLE gatt from a BLE device:
+Make sure your BLE device is turned on, then:
+$ sudo hcitool lescan
 LE Scan ...
 98:4F:EE:0D:04:B1 K9 Kilos
 98:4F:EE:0D:04:B1 (unknown)
-^Cpi@raspberrypi:~/bluez-5.40 $ sudo gatttool -b 98:4F:EE:0D:04:B1 -I
-[98:4F:EE:0D:04:B1][LE]> connect
+^C to exit the scan
+$ sudo gatttool -b 98:4F:EE:0D:04:B1 -I    (use the BLE Mac address of your device)
+> connect
 Attempting to connect to 98:4F:EE:0D:04:B1
 Connection successful
-[98:4F:EE:0D:04:B1][LE]> char-desc
+> char-desc
 handle: 0x0001, uuid: 00002800-0000-1000-8000-00805f9b34fb
 handle: 0x0002, uuid: 00002803-0000-1000-8000-00805f9b34fb
 handle: 0x0003, uuid: 00002a00-0000-1000-8000-00805f9b34fb
@@ -156,122 +96,56 @@ handle: 0x0007, uuid: 00002a04-0000-1000-8000-00805f9b34fb
 handle: 0x0008, uuid: 00002800-0000-1000-8000-00805f9b34fb
 handle: 0x0009, uuid: 00002800-0000-1000-8000-00805f9b34fb
 handle: 0x000a, uuid: 00002803-0000-1000-8000-00805f9b34fb
-handle: 0x000b, uuid: 00002a9e-0000-1000-8000-00805f9b34fb <-- this is the Weight Feature gatt
+handle: 0x000b, uuid: 00002a9e-0000-1000-8000-00805f9b34fb
 handle: 0x000c, uuid: 00002902-0000-1000-8000-00805f9b34fb
 handle: 0x000d, uuid: 00002803-0000-1000-8000-00805f9b34fb
 handle: 0x000e, uuid: 00002a9d-0000-1000-8000-00805f9b34fb
 handle: 0x000f, uuid: 00002902-0000-1000-8000-00805f9b34fb
-[98:4F:EE:0D:04:B1][LE]> char-read-hnd 0001
+> char-read-hnd 0001
 Characteristic value/descriptor: 00 18 
-[98:4F:EE:0D:04:B1][LE]> char-read-hnd 0002
-Characteristic value/descriptor: 02 03 00 00 2a 
-[98:4F:EE:0D:04:B1][LE]> exit
+> exit
 
-Now looking for how to install and test Node.js
+Next we'll install Node.js
 
-Node.js is installed and doesn't need to be updated.
-pi@raspberrypi:~ $ node -v
-v0.10.29
-Brought it up to date:
-$ sudo apt-get install node  <--- DON'T do this. That gets an old node radio package.
-pi@raspberrypi:~ $ sudo apt-get install nodejs <-- not necessary. 0.10.29 seems to be the current version.
-Reading package lists... Done
-Building dependency tree       
-Reading state information... Done
-nodejs is already the newest version.
-nodejs set to manually installed.
-0 upgraded, 0 newly installed, 0 to remove and 47 not upgraded.
-pi@raspberrypi:~ $ pi@raspberrypi:~ $ nodejs -v
-v0.10.29
+DON'T install the package 'node', because that's an old packet radio app
+that has nothing to do with Node.js
 
-I don't seem to have npm installed:
-pi@raspberrypi:~ $ sudo npm install noble
-sudo: npm: command not found
-pi@raspberrypi:~ $ npm
-bash: npm: command not found
-pi@raspberrypi:~ $ 
+Remove the existing installation of Node.js:
+$ sudo apt-get --purge remove node
+$ sudo apt-get --purge remove nodejs-legacy
+$ sudo apt-get --purge remove nodejs
 
-Need to start over in my installation of nodejs:
-sudo apt-get --purge remove node
-sudo apt-get --purge remove nodejs-legacy
-sudo apt-get --purge remove nodejs
+Following an instruction at https://nodejs.org/en/download/package-manager/#debian-and-ubuntu-based-linux-distributions
+arrange to get an up-to-date ARM version of Node.js by telling your Linux package manager about
+a repository that contains it:
+$ curl -sL https://deb.nodesource.com/setup_4.x | sudo -E bash -   (this takes a few minutes)
 
-I then followed https://www.npmjs.com/package/raspberry
+Follow the instructions at https://www.npmjs.com/package/raspberry to update Node.js:
 $ sudo apt-get update
-$ sudo apt-get upgrade
-$ sudo apt-get install nodejs npm
-$ sudo apt-get install nodejs-legacy (makes 'node' a synonym for 'nodejs')
-reboot
-pi@raspberrypi:~ $ node -v
-v0.10.29
-pi@raspberrypi:~ $ npm -v
-1.4.21
+$ sudo apt-get upgrade   (Note: this step will upgrade many things in your Raspbian installation)
+$ sudo apt-get install nodejs
+Reboot
 
-To install a Node.js BLE package, I followed instructions at https://github.com/sandeepmistry/noble
+Test the installations of Node.js and npm (Node Package Manager):
+$ node -v (it should respond with something like "v4.4.6")
+$ npm -v  (it should respond with something like "2.15.5")
+
+Install the Node.js BLE package, noble. I followed instructions at https://github.com/sandeepmistry/noble
 $ sudo apt-get install bluetooth bluez libbluetooth-dev libudev-dev
-$ sudo npm install -g noble
-Error because it wants node v 0.12.x, and I have 0.10.29
-
-Looking for how to get a newer version of Node.js
-Trying https://nodejs.org/en/download/package-manager/#debian-and-ubuntu-based-linux-distributions
-which SandeepMistry pointed to.
-$ curl -sL https://deb.nodesource.com/setup_4.x | sudo -E bash -
-$ sudo apt-get install -y nodejs
-
-Now everything seems set up:
-pi@raspberrypi:~ $ node -v
-v4.4.6
-pi@raspberrypi:~ $ npm -v
-2.15.5
-pi@raspberrypi:~ $ sudo node -v
-v4.4.6
-pi@raspberrypi:~ $ sudo npm -v
-2.15.5
-pi@raspberrypi:~ $ 
+$ cd (so noble, below, gets installed in the home directory. Npm installs into the current directory.)
+$ npm install noble           (this takes a minute)
 Reboot, just out of superstition.
-Retried
-$ sudo npm install -g noble  <--- DON'T do this. It doesn't work.
-Got a number of errors about root not having access to obviously-root folders (/root/.node-gyp/4.4.6)
-Tried
-$ npm install noble (which is what the original instructions said to do)
-Succeeded
 
-Tried to include Noble. Failed. - a bit of a dilemma, since running as me says it can't get to the adapter
-and running as root fails to have noble installed.
-
-Tried:
-$ sudo npm install noble (to make Noble accessible to root) IT FAILED.
-Found the problem is sudo and the script, causing the script to try to work as 'nobody'.
-Logged in as root and did
-# npm install noble
-That worked.
-
-Running node as root still doesn't work:
-pi@raspberrypi:~ $ sudo node
-> var noble = require('noble');
-undefined
-> pi@raspberrypi:~ $ 
-Rebooting didn't help.
-
-pi@raspberrypi:~ $ node
-> var noble = require('noble');
-noble warning: adapter state unauthorized, please run as root or with sudo
-               or see README for information on running without root/sudo:
-               https://github.com/sandeepmistry/noble#running-on-linux
-undefined
-> pi@raspberrypi:~ $ 
-
+Give Node.js permission to access the Bluetooth adapter:
 $ sudo setcap cap_net_raw+eip $(eval readlink -f `which node`)
-Now running a normal node and trying to import 'noble' failed with 'undefined'.
 
-DOH. It turns out that doing that require() in interactive mode fails,
-but doing it in a script works fine.
+Do a simple test of noble:
+Make sure a BLE device is on and in range of the Raspberry Pi.
+$ cd ~/node_modules/noble
+$ node test (that should output some info about the BLE device, its services, and gatts).
 
-So I'm on my way. Using the test.js in the noble folder, I've been able to
-- find the K9 Kilos BLE device
-- find its Weight service
-- find its Weight Measurement gatt
-- dump the raw bytes of the weight measurement.
+test.js in that noble folder is a good example of how to use noble to communicate
+with a BLE device.
 
 
 
@@ -279,11 +153,7 @@ So I'm on my way. Using the test.js in the noble folder, I've been able to
 
 
 
-
-
-
-
-============= Python stuff I no longer do
+============= Python BLE stuff that didn't work for me:
 
 (Didn't do this the second time)
 Tried to add a user, but not completely successfully:
@@ -387,26 +257,5 @@ Traceback (most recent call last):
     self._helper.stdin.write(cmd)
 IOError: [Errno 32] Broken pipe
 
-Went to a third source of "how to" to add BLE support: http://www.instructables.com/id/Control-Bluetooth-LE-Devices-From-A-Raspberry-Pi/?ALLSTEPS
 
-$ sudo apt-get --purge remove bluez  <------ DON'T do this. It's a very bad idea.
-$ cd ~/bluez-5.40
-$ export LDFLAGS=-lrt
-$ ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-library -disable-systemd
-$ make >make.log 2>&1
-Success
-$ sudo make install
-Success
-$ ls -l /usr/bin/gattool  (oops. I misspelled it, so I can't know if it was already there)
-ls: cannot access /usr/bin/gattool: No such file or directory
-$ sudo cp attrib/gatttool /usr/bin/
-rebooted
-
-Oh, great. It seems the uninstall of bluez has uninstalled more than intended:
- $ systemctl status bluetooth
-● bluetooth.service
-   Loaded: not-found (Reason: No such file or directory)
-   Active: inactive (dead)
-hciconfig returns NO DEVICES. Ugh.
-Decided to start over.
 
