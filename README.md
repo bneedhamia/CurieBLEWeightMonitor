@@ -12,6 +12,8 @@ The total weight and 4 Load Sensor weights are reported as the weights of 5 diff
 for details of the timing of the sending of the weights.
 ## Files
 - ProjectDiary.odt = day-to-day diary of the progress of the project. Useful to see how the project unfolded over time.
+- CurieBLEWeightMonitor.ino = Arduino 101 Sketch to run on the scale.
+- scalegateway = node.js code to upload data from the scale to the cloud via a Raspberry Pi or such.
 - WeightScale.fzz = rudimentary Fritzing circuit diagram.
 - BillOfMaterials.ods = parts list, with suppliers and prices.
 - MechanicalNotes.odp = diagrams of any complicated physical parts.
