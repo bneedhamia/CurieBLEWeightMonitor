@@ -529,14 +529,14 @@ void setBleWeightMeasurement(uint8_t userId, float weightKg) {
    * Set the flags:
    * bit 0 = 0 means we're reporting in SI units (kg and meters)
    * bit 1 = 0 means there is no time stamp in our report
-   * bit 2 = 0 means no User ID is in our report
+   * bit 2 = 1 means User ID is in our report
    * bit 3 = 0 means no BMI and Height are in our report
    * bits 4..7 are reserved, and set to zero.
    */
 
   flags |= 0x0 << 0;
   flags |= 0x0 << 1;
-  flags |= 0x0 << 2;
+  flags |= 0x1 << 2;
   flags |= 0x0 << 3;
 
   // Convert the weight into BLE representation
