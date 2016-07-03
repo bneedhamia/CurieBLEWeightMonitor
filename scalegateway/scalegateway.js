@@ -16,9 +16,14 @@
  */
 
 var noble = require('noble');  // npm install noble  (see https://github.com/sandeepmistry/noble)
+var log4js = require('log4js'); // np install log4js (see https://github.com/nomiddlename/log4js-node)
+var fs = require('fs');
 
-// CONFIG_FILENAME = the local file containing our configuration. See readAppConfig().
+// CONFIG_FILENAME = the local file containing our configuration. See startReadingAppConfig().
 const CONFIG_FILENAME = 'properties.json';
+
+// RUN_INTERVAL_MS = how often (milliseconds) to upload a set of data from the scale.
+const RUN_INTERVAL_MS = (30 * 1000);
 
 /*
  * USER_* - BLE "User" Ids for the scale's reported weights.
@@ -44,7 +49,10 @@ const USER_LR = 4;
 const NUM_USERS = 5;
 const USER_RESET = NUM_USERS;
 
+var logger;		// file logger.
 var properties;		// global configuration, read from CONFIG_FILENAME
+
+var scanIntervalId = null;	// setInterval() return value. ID to clear to stop periodic scanning.
 
 /*
  * Reads our application's configuration from a local file.
@@ -54,13 +62,10 @@ var properties;		// global configuration, read from CONFIG_FILENAME
  * That file should be a JSON file with the following names:
  *   "bleLocalName" Required, String. Advertised LocalName of the BLE weight scale to read from.
  */
-function readAppConfig() {
-  var bleLocalName;		// from properties file
-
-  fs = require('fs');
+function startReadingAppConfig() {
   fs.readFile(CONFIG_FILENAME, 'utf8', function(err, data) {
     if (err) {
-      console.log('Failed to read config file, ' + CONFIG_FILENAME + ': ' + err);
+      logger.error('Failed to read config file, ' + CONFIG_FILENAME + ': ' + err);
       process.exit(1);
     }
   
@@ -69,49 +74,67 @@ function readAppConfig() {
     // Check that the necessary properties are there.
 
     if (!properties.bleLocalName || properties.bleLocalName.length == 0) {
-      console.log('Missing or blank bleLocalName in ' + CONFIG_FILENAME);
+      logger.error('Missing or blank bleLocalName in ' + CONFIG_FILENAME);
       process.exit();
     }
-    console.log(properties.bleLocalName);
+    logger.info(properties.bleLocalName);
+
+    /*
+     * Now that our configuration is all set up, start the periodic scale reading
+     * and set up to do that periodically.
+     */
+    startScaleRead();
+    scanIntervalId = setInterval(startScaleRead, RUN_INTERVAL_MS);
+
+    function startScaleRead() {
+      logger.debug('Scanning started.');
+      noble.startScanning();
+    };
   });
 };
 
 
-readAppConfig();
+function initialize() {
+  var myModuleName;		// name of my module, to appear in the log
+  myModuleName = __filename.substring(__filename.lastIndexOf('/') + 1);
+  log4js.loadAppender('file');
+  //log4js.addAppender(log4js.appenders.console());
+  log4js.addAppender(log4js.appenders.file('logs/scalegateway.log'), myModuleName);
+
+  logger = log4js.getLogger(myModuleName);
+  logger.setLevel('DEBUG');		// level of output, in order: DEBUG, INFO, WARN, ERROR, FATAL
+
+  startReadingAppConfig();
+}
 
 
+/*
+ * This function is the beginning of the app flow.
+ * Called when the BLE adapter is available or unavailable.
+ */
 noble.on('stateChange', function(state) {
   if (state === 'poweredOn') {
-    noble.startScanning();
+    initialize();	// set up our program
   } else {
+    logger.error('BLE adapter turned off unexpectedly. Exiting.');
     noble.stopScanning();
+    exit(1);
   }
 });
 
 noble.on('scanStart', function() {
-  console.log('on -> scanStart');
+  logger.info('on -> scanStart');
 });
 
 noble.on('scanStop', function() {
-  console.log('on -> scanStop');
+  logger.info('on -> scanStop');
 });
 
 noble.on('discover', function(peripheral) {
-  console.log('on -> discover');
-
-  peripheral.on('connect', function() {
-    console.log('on -> connect');
-
-    // We've successfully connected. Find what Services the device offers.
-    this.discoverServices();
-  });
-
-  peripheral.on('disconnect', function() {
-    console.log('on -> disconnect');
-  });
+  logger.info('on -> discover');
 
   peripheral.on('servicesDiscover', function(services) {
-    console.log('on -> peripheral services discovered');
+    logger.info('on -> peripheral services discovered');
 
     // Find the weight service, if it's advertised.  If not, we're done.
 
@@ -122,7 +145,7 @@ noble.on('discover', function(peripheral) {
       }
     }
     if (serviceIndex >= services.length) {
-      console.log('No ' + 'weight' + ' service found on device.');
+      logger.error('No ' + 'weight' + ' service found on device.');
       peripheral.disconnect();
       return;
     }
@@ -158,30 +181,30 @@ noble.on('discover', function(peripheral) {
 
         // For debugging, report the bytes of data
         for (i = 0; i < bleData.length; ++i) {
-          console.log(bleData[i]);
+          logger.info(bleData[i]);
         }
 
         if (bleData.length != 4) {
-          console.log('Garbled BLE Weight measurement: data length = ' + bleData.length);
+          logger.error('Garbled BLE Weight measurement: data length = ' + bleData.length);
           return;
         }
 
         // Check that the flags match our expectations
         wFlags = bleData[0];
         if ((wFlags & 0x01)) {  // we assume SI units
-          console.log('Skipping unexpected Weight Flag: scale is reporting in Imperial units instead of SI units');
+          logger.error('Skipping unexpected Weight Flag: scale is reporting in Imperial units instead of SI units');
           return;
         }
         if ((wFlags & 0x02)) {  // we assume no timestamp
-          console.log('Skipping unexpected Weight Flag: scale includes a timestamp');
+          logger.error('Skipping unexpected Weight Flag: scale includes a timestamp');
           return;
         }
         if ((wFlags & 0x04) == 0) {  // we assume a user id
-          console.log("Skipping unexpected Weight Flag: scale doesn't report user ID");
+          logger.error("Skipping unexpected Weight Flag: scale doesn't report user ID");
           //BUG: the scale says no user ID, but does include it.  return;
         }
         if ((wFlags & 0x08)) {  // we assume no BMI or Height
-          console.log('Skipping unexpected Weight Flag: scale includes BMI and Height');
+          logger.error('Skipping unexpected Weight Flag: scale includes BMI and Height');
           return;
         }
 
@@ -191,7 +214,7 @@ noble.on('discover', function(peripheral) {
 
         userId = bleData[3];
 
-        console.log('User ' + userId + ' weight: ' + weightKg + ' kg');
+        logger.info('User ' + userId + ' weight: ' + weightKg + ' kg');
         
       }
 
@@ -203,7 +226,7 @@ noble.on('discover', function(peripheral) {
         }
       }
       if (characteristicIndex >= characteristics.length) {
-          console.log('  No weight measurement characteristic found.');
+          logger.error('  No weight measurement characteristic found.');
           peripheral.disconnect();
           return;
       }
@@ -212,45 +235,19 @@ noble.on('discover', function(peripheral) {
         // we're here when the weight is read.
         parseBleWeight(data);
 
+        characteristics[characteristicIndex].notify(false);
         peripheral.disconnect();
       });
 
-      characteristics[characteristicIndex].on('write', function() {
 
-        peripheral.disconnect();
-      });
-
-      characteristics[characteristicIndex].on('broadcast', function(state) {
-
-        peripheral.disconnect();
-      });
 
       characteristics[characteristicIndex].on('notify', function(state) {
         characteristics[characteristicIndex].read();
 
       });
 
-      characteristics[characteristicIndex].on('descriptorsDiscover', function(descriptors) {
-        console.log('on -> descriptors discover ' + descriptors);
 
-        var descriptorIndex = 0;
-
-        descriptors[descriptorIndex].on('valueRead', function(data) {
-          console.log('on -> descriptor value read ' + data);
-          console.log(data);
-          peripheral.disconnect();
-        });
-
-        descriptors[descriptorIndex].on('valueWrite', function() {
-          console.log('on -> descriptor value write ');
-          peripheral.disconnect();
-        });
-
-        descriptors[descriptorIndex].readValue();
-        //descriptors[descriptorIndex].writeValue(new Buffer([0]));
-      });
-
-
+      // Now that our callbacks are set up, turn on notification of new values.
       characteristics[characteristicIndex].notify(true);
     });
 
@@ -264,11 +261,22 @@ noble.on('discover', function(peripheral) {
   var localName = peripheral.advertisement.localName;
 
   if (properties.bleLocalName == localName) {
-    console.log('Found device named ' + localName);
-    noble.stopScanning();
-    peripheral.connect();
+    logger.info('Found device named ' + localName);
+    noble.stopScanning();	// make sure we don't scan for more devices.
+
+    peripheral.connect(function(err) {
+      logger.debug('connected to ' + peripheral);
+      if (err) {
+        logger.info('connected error = ' + err);
+        return;
+      }
+
+      // We've successfully connected. Find what Services the device offers.
+      peripheral.discoverServices();
+    });
+
   } else {
-    //console.log('ignoring BLE device ' + localName + '. Continuing to scan');
+    //logger.info('ignoring BLE device ' + localName + '. Continuing to scan');
   }
 });
 
