@@ -1,5 +1,8 @@
 # CurieBLEWeightMonitor
-Arduino/Genuino 101 (Curie) Sketch to continuously report my dog's weight using load sensors and Bluetooth Low Energy (BLE).
+An Arduino/Genuino 101 (Curie) Sketch to continuously report my dog's weight using load sensors
+and Bluetooth Low Energy (BLE), and a Node.js Raspberry Pi application to periodically read from the scale
+and write the data to a stream at http://data.sparkfun.com
+
 The scale sends the total weight on the scale (plywood top, bed, bed cover, and possibly the dog), as well as the
 weight measured by each of the 4 Load Sensors at the corners of the scale.
 This data should be sufficient to estimate whether the dog is in or out of the bed, how much the dog weighs,
@@ -7,9 +10,10 @@ whether the dog is restless or still, and where on the bed the dog is laying (ce
 
 See the project blog, beginning at https://needhamia.com/?p=661 for all the details.
 ## Data Details
-The Sketch periodically reports the total weight and weight at each Load Sensor in Kilograms and as Standard BLE Weight Characteristics.
-The total weight and 4 Load Sensor weights are reported as the weights of 5 different BLE Users.  See the Sketch code/comments
-for details of the timing of the sending of the weights.
+The Sketch periodically reports the total weight and weight at each Load Sensor in Kilograms
+and as Standard BLE Weight Characteristics.
+The total weight and 4 Load Sensor weights are reported as the weights of 5 different BLE Users.
+See the Sketch code/comments for details of the timing of the sending of the weights.
 ## Files
 - ProjectDiary.odt = day-to-day diary of the progress of the project. Useful to see how the project unfolded over time.
 - CurieBLEWeightMonitor.ino = Arduino 101 Sketch to run on the scale.
