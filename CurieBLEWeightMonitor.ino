@@ -174,10 +174,19 @@ const float SCALE_MM_Y = 709.0f; // (measured 710 and 708)
  *   before it's replaced by a new BLE value.  Necessary because each
  *   weight reading from the scale produces 5 different weights (see USER_*),
  *   which share a single BLE Characteristic.
+ *   
  *   NOTE: we add one reporting interval to the reading interval
  *   so that we don't miss reporting something because of minor delays.
+ *   
+ *   NOTE: I've set the time to not be evenly divisible by 60 seconds
+ *   so that the scalegateway.js Node.js script will not synchronize
+ *   to the rate of updating - that way there won't be a worst-case starting
+ *   time for the script.  I'm doing this mainly to see if there's a timing
+ *   bug in the BLE library, but it's handy to prevent a script started
+ *   at an unlucky time from always having to wait for almost 2 measurement
+ *   cycles to pick up all 5 measurements of one cycle.
  */
-const unsigned long MS_PER_WEIGHT_READING = 18L * 1000L;
+const unsigned long MS_PER_WEIGHT_READING = 16800L; // 16.8 seconds = 2.8 seconds/report
 const unsigned long MS_PER_WEIGHT_REPORTED = MS_PER_WEIGHT_READING
   / (NUM_USERS + 1);
 
