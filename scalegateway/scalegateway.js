@@ -291,7 +291,7 @@ noble.on('discover', function(peripheral) {
           var userWeight;	// userId and weight, returned by parseBleWeight()
 
           userWeight = parseBleWeight(data);
-          logger.info('Received user ' + userWeight.userId + ' weight(kg) ' + userWeight.weightKg);
+          logger.info('User ' + userWeight.userId + ': ' + userWeight.weightKg + ' kg');
 
           /*
            * Weights are reported in order: USER_TOTAL first, then the others.
@@ -466,7 +466,7 @@ function startSendToSparkfun(streamInfo, record, onCompletion) {
     path = path + encodeURIComponent(name) + '=' + encodeURIComponent(record[name]);
   }
 
-  logger.debug('path: ' + path);
+  //logger.debug('path: ' + path);
 
   req = https.request({
     'hostname': 'data.sparkfun.com',
