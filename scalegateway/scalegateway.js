@@ -9,13 +9,6 @@
  *  Edit ~/configscalegateway.json, adding they private and public keys for your stream.
  *  node --use_strict scalegateway
  *
- * Currently, the scale stops advertising after about 5 minutes - I need to fix that bug.
- *
- * NOTE: if the script connects to the scale, then exits without disconnecting from the scale,
- * the Arduino 101 BLE library won't turn advertising back on, and so is undiscoverable
- * until the scale is rebooted. There is also some evidence that closing a connection while
- * Notifications are enabled puts the Arduino 101 into a strange state.
- * 
  * Copyright (c) 2016 Bradford Needham, North Plains, Oregon, USA
  * @bneedhamia, https://www.needhamia.com
  * Licensed under the GPL 2, a copy of which
@@ -82,8 +75,8 @@ var properties;		// app configuration, read from CONFIG_FILENAME
  */
 var bleState = {
   scanning: false,	// if true, scanning is on (and must be stopped before exiting).
-  connected: false,	// if true, we're connected to the device (and must disconnect before exiting).
-  subscribed: false,	// if true, we're subscribed to data changes (and must unsubscribe before exiting).
+  connected: false,	// if true, we're connected to the device (and should disconnect before exiting).
+  subscribed: false,	// if true, we're subscribed to data changes (and should unsubscribe before exiting).
   weights: []		// indexed by USER_*, non-null if we've read that user's weight.
 };
 
@@ -220,9 +213,6 @@ noble.on('discover', function(peripheral) {
 
   /*
    * Connect to the device and find its services and characteristics.
-   * NOTE: If our app exits without calling .disconnect(),
-   * the Arduino 101 BLE library will be stuck in a non-advertising mode
-   * and will need to be rebooted.
    */
   peripheral.connect(function(err) {
     if (err) {

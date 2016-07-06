@@ -1,6 +1,6 @@
 {
-  'bleLocalName': 'K9 Kilos',
-  'publicKey': 'yourPubKey',
-  'privateKey': 'yourPriKey',
-  'uploadSecs': 60
+  "bleLocalName": "K9 Kilos",
+  "publicKey": "yourSparkfunDataPubKey",
+  "privateKey": "yourSparkfunDataPriKey",
+  "uploadSecs": 60
 }
