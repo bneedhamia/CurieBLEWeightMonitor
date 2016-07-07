@@ -22,6 +22,7 @@
 var os = require('os');		
 var path = require('path');
 var fs = require('fs');
+var util = require('util');
 var https = require('https');
 var noble = require('noble');	// npm install noble  (see https://github.com/sandeepmistry/noble)
 var log4js = require('log4js');	// npm install log4js (see https://github.com/nomiddlename/log4js-node)
@@ -75,10 +76,45 @@ var properties;		// app configuration, read from CONFIG_FILENAME
  */
 var bleState = {
   scanning: false,	// if true, scanning is on (and must be stopped before exiting).
+  peripheral: null,	// the connected or connecting BLE peripheral object.
   connected: false,	// if true, we're connected to the device (and should disconnect before exiting).
+  gatt: null,		// the BLE Characteristic (gatt) that we're subscribed to.
   subscribed: false,	// if true, we're subscribed to data changes (and should unsubscribe before exiting).
   weights: []		// indexed by USER_*, non-null if we've read that user's weight.
 };
+
+/*
+ * This function is the beginning of the application control flow.
+ * Called when the BLE adapter becomes available or unavailable.
+ */
+noble.on('stateChange', function(state) {
+  if (state === 'poweredOn') {
+    initialize();	// set up our program
+  } else {
+    logger.error('BLE adapter turned off unexpectedly. Exiting.');
+    exit(1);
+  }
+});
+
+/*
+ * Initializes our application.
+ * Sets up all the application-global things.
+ */
+function initialize() {
+  var myModuleName;		// name of my module, to appear in the log
+
+  // Set up logging to a file.
+  myModuleName = __filename.substring(__filename.lastIndexOf(path.sep) + 1);
+  log4js.loadAppender('file');
+  //log4js.addAppender(log4js.appenders.console());
+  log4js.addAppender(log4js.appenders.file('logs/scalegateway.log'), myModuleName);
+
+  logger = log4js.getLogger(myModuleName);
+  logger.setLevel('DEBUG');		// level of output, in order: DEBUG, INFO, WARN, ERROR, FATAL
+
+
+  startReadingAppConfig();
+}
 
 /*
  * Reads our application's configuration from a local file.
@@ -138,63 +174,33 @@ function startReadingAppConfig() {
     startScaleRead();
     setInterval(startScaleRead, 1000 * properties.uploadSecs); // setInterval() wants milliseconds
 
-
-    /*
-     * If the previous scan is completed, starts a new scan
-     * that should result in an upload of the current weights.
-     */
-    function startScaleRead() {
-      if (bleState.scanning) {
-        logger.debug('Continuing existing scan.');
-      } else if (bleState.connected || bleState.subscribed) {
-        logger.debug('Skipping scan: previous scan is still busy. Connected: ' + bleState.connected
-          + ', Subscribed: ' + bleState.subscribed + '.');
-      } else {
-        logger.debug('Scanning started.');
-
-        bleState.scanning = true;
-        noble.startScanning();
-      }
-
-    };
   });
 };
 
 /*
- * Initializes our application.
- * Sets up all the application-global things.
+ * If the previous scan is completed, starts a new scan
+ * that should result in an upload of the next set f weights.
  */
-function initialize() {
-  var myModuleName;		// name of my module, to appear in the log
+function startScaleRead() {
 
-  // Set up logging to a file.
-  myModuleName = __filename.substring(__filename.lastIndexOf(path.sep) + 1);
-  log4js.loadAppender('file');
-  //log4js.addAppender(log4js.appenders.console());
-  log4js.addAppender(log4js.appenders.file('logs/scalegateway.log'), myModuleName);
+  logger.debug(util.inspect(process.memoryUsage())); // to look for memory leaks. Heap use should not grow without bound.
 
-  logger = log4js.getLogger(myModuleName);
-  logger.setLevel('DEBUG');		// level of output, in order: DEBUG, INFO, WARN, ERROR, FATAL
-
-
-  startReadingAppConfig();
-}
-
-/*
- * This function is the beginning of the application control flow.
- * Called when the BLE adapter becomes available or unavailable.
- */
-noble.on('stateChange', function(state) {
-  if (state === 'poweredOn') {
-    initialize();	// set up our program
+  if (bleState.scanning) {
+    logger.debug('Continuing existing scan.');
+  } else if (bleState.connected || bleState.subscribed) {
+    logger.debug('Skipping scan: previous scan is still busy. Connected: ' + bleState.connected
+      + ', Subscribed: ' + bleState.subscribed + '.');
   } else {
-    logger.error('BLE adapter turned off unexpectedly. Exiting.');
-    exit(1);
+    logger.debug('Scanning started.');
+
+    bleState.scanning = true;
+    noble.startScanning();	// noble.on('discover'...) should happen next.
   }
-});
+
+};
 
 /*
- * Called when a BLE device is discovered (from that device's BLE advertising)
+ * Called when BLE Scanning discovers a BLE device (from that device's BLE advertising)
  */
 noble.on('discover', function(peripheral) {
   var localName = peripheral.advertisement.localName;
@@ -211,10 +217,19 @@ noble.on('discover', function(peripheral) {
   noble.stopScanning();
   bleState.scanning = false;
 
+  // remember the peripheral for further processing
+  bleState.peripheral = peripheral;
+
   /*
    * Connect to the device and find its services and characteristics.
    */
-  peripheral.connect(function(err) {
+  bleState.peripheral.connect(onConnect);
+});
+
+/*
+ * Called when Connection to a BLE Peripheral has happened
+ */
+function onConnect(err) {
     if (err) {
       logger.info('connected error = ' + err);
       return;
@@ -225,126 +240,142 @@ noble.on('discover', function(peripheral) {
     // Search for the Service we want.
     var svcUuids = [];
     svcUuids[0] = WEIGHT_SERVICE_UUID
-    peripheral.discoverServices(svcUuids, function(err, services){
-      var service;  // our service of interest
-
-      if (err) {
-        logger.error('DiscoverServices failed: ' + err);
-        peripheral.disconnect(function(err) {
-          bleState.connected = false;
-          exit(1);
-        });
-        return; // to wait for the disconnect to complete
-      }
-      if (services.length != 1) {
-        logger.error('DiscoverServices returned unexpected ' + services.length + ' Services');
-        peripheral.disconnect(function(err) {
-          bleState.connected = false;
-          exit(1);
-        });
-        return; // to wait for the disconnect to complete
-      }
-
-      service = services[0];
-
-      // Search for the characteristic we want.
-      var gattUuids = [];
-      gattUuids[0] = WEIGHT_MEASUREMENT_GATT_UUID;
-      service.discoverCharacteristics(gattUuids, function(err, gatts) {
-        var gatt;  // our characteristic of interest
-        var i;
-  
-        if (err) {
-          logger.error('DiscoverCharacteristics failed: ' + err);
-          peripheral.disconnect(function(err) {
-            bleState.connected = false;
-            exit(1);
-          });
-          return; // to wait for the disconnect to complete
-        }
-        if (gatts.length != 1) {
-          logger.error('DiscoverCharacteristics returned unexpected ' + gatts.length + ' Characteristics');
-          peripheral.disconnect(function(err) {
-            bleState.connected = false;
-            exit(1);
-          });
-          return; // to wait for the disconnect to complete
-        }
-  
-        gatt = gatts[0];
-
-        // NOTE: each .on() call adds another listener to this gatt.  We must remove it when done.
-        gatt.on('data', onData);
-
-        // Now that our callbacks is set up, turn on notification of new values.
-        for (i = 0; i < NUM_USERS; ++i) {
-          bleState.weights[i] = null;
-        }
-        bleState.subscribe = true;
-        gatt.subscribe();	// triggers 'data' event on notification
-
-        /*
-         * Called when new Weight Measurement is ready,
-         * reads and interprets that Weight Measurement value.
-         */
-        function onData(data, isNotify) {
-          var userWeight;	// userId and weight, returned by parseBleWeight()
-
-          userWeight = parseBleWeight(data);
-          logger.info('User ' + userWeight.userId + ': ' + userWeight.weightKg + ' kg');
-
-          /*
-           * Weights are reported in order: USER_TOTAL first, then the others.
-           * We want a consistent set of weights,
-           * starting with USER_TOTAL and ending with NUM_USERS - 1.
-           *
-           * BUG: Several times I've seen the scale report 0, 1, 0, 1, 2, 3, 4.... I wonder whether the scale is resetting?
-           */
-          if (userWeight.userId >= NUM_USERS) {
-            return;	// skip USER_RESET because it's a temporary state.
-          }
-          if (userWeight.userId != USER_TOTAL && !bleState.weights[USER_TOTAL]) {
-            return;	// skip reports until the start of a set.
-          }
-
-          bleState.weights[userWeight.userId] = userWeight.weightKg;
-
-          if (userWeight.userId == NUM_USERS - 1) {
-            // We've read a set of weights. 
-
-            // Close up all the BLE things.
-            gatt.removeListener('data', onData);	// removes our listener, so we don't create more and more
-            gatt.unsubscribe(function(err) {
-              bleState.subscribe = false;
-              if (err) {
-                logger.error('Failed to unsubscribe: ' + err);
-                // go on - what else can we do?
-              }
-              peripheral.disconnect(function(err) {
-                bleState.connected = false;
-                if (err) {
-                  logger.error('Failed to disconnect: ' + err);
-                  // ignore the error.
-                }
-                
-                // Upload the record to Sparkfun.
-                uploadWeights();
-              });
-            });
-          }
-        }
-      });
-    });
-  });
-
-});
+    bleState.peripheral.discoverServices(svcUuids, onServicesDiscovered);
+}
 
 /*
- * Starts the upload of our bleState.weights[] to Sparkfun.
+ * Called when peripheral.discoverServices() completes.
  */
-function uploadWeights() {
+function onServicesDiscovered(err, services) {
+  var service;  // our service of interest
+
+  if (err) {
+    logger.error('DiscoverServices failed: ' + err);
+    bleState.peripheral.disconnect(function(err) {
+      bleState.connected = false;
+      bleState.peripheral = null;
+      exit(1);
+    });
+    return; // to wait for the disconnect to complete
+  }
+  if (services.length != 1) {
+    logger.error('DiscoverServices returned unexpected ' + services.length + ' Services');
+    bleState.peripheral.disconnect(function(err) {
+      bleState.connected = false;
+      bleState.peripheral = null;
+      exit(1);
+    });
+    return; // to wait for the disconnect to complete
+  }
+
+  service = services[0];
+
+  // Search for the characteristic we want.
+  var gattUuids = [];
+  gattUuids[0] = WEIGHT_MEASUREMENT_GATT_UUID;
+  service.discoverCharacteristics(gattUuids, onCharacteristicsDiscovered);
+}
+
+/*
+ * Called when service.discoverCharacteristics() has completed.
+ */
+function onCharacteristicsDiscovered(err, gatts) {
+  var i;
+
+  if (err) {
+    logger.error('DiscoverCharacteristics failed: ' + err);
+    bleState.peripheral.disconnect(function(err) {
+      bleState.connected = false;
+      bleState.peripheral = null;
+      exit(1);
+    });
+    return; // to wait for the disconnect to complete
+  }
+  if (gatts.length != 1) {
+    logger.error('DiscoverCharacteristics returned unexpected ' + gatts.length + ' Characteristics');
+    bleState.peripheral.disconnect(function(err) {
+      bleState.connected = false;
+      bleState.peripheral = null;
+      exit(1);
+    });
+    return; // to wait for the disconnect to complete
+  }
+
+  bleState.gatt = gatts[0];
+
+  // NOTE: each .on() call adds another listener to this gatt.  We must remove it when done.
+  bleState.gatt.on('data', onData);
+
+  // Now that our callbacks is set up, turn on notification of new values.
+  for (i = 0; i < NUM_USERS; ++i) {
+    bleState.weights[i] = null;
+  }
+  bleState.subscribe = true;
+  bleState.gatt.subscribe();	// triggers 'data' event on notification
+}
+
+/*
+ * Called when new Weight Measurement is ready,
+ * reads and interprets that Weight Measurement value.
+ */
+function onData(data, isNotify) {
+  var userWeight;	// userId and weight, returned by parseBleWeight()
+
+  userWeight = parseBleWeight(data);
+  logger.info('User ' + userWeight.userId + ': ' + userWeight.weightKg + ' kg');
+
+  /*
+   * Weights are reported in order: USER_TOTAL first, then the others.
+   * We want a consistent set of weights,
+   * starting with USER_TOTAL and ending with NUM_USERS - 1.
+   */
+  if (userWeight.userId >= NUM_USERS) {
+    return;	// skip USER_RESET because it's a temporary state.
+  }
+  if (userWeight.userId != USER_TOTAL && !bleState.weights[USER_TOTAL]) {
+    return;	// skip reports until the start of a set.
+  }
+
+  bleState.weights[userWeight.userId] = userWeight.weightKg;
+
+  if (userWeight.userId == NUM_USERS - 1) {
+    // We've read a set of weights. 
+
+    // Close up all the BLE things.
+    bleState.gatt.removeListener('data', onData);	// removes our listener, so we don't create more and more
+    bleState.gatt.unsubscribe(onGattUnsubscription);
+    bleState.gatt = null;
+  }
+}
+
+/*
+ * Called when gatt.unsubscribe() completes.
+ */
+function onGattUnsubscription(err) {
+  bleState.subscribe = false;
+  if (err) {
+    logger.error('Failed to unsubscribe: ' + err);
+    // go on - what else can we do?
+  }
+  bleState.peripheral.disconnect(onNormalPeripheralDisconnected);
+};
+
+/*
+ * Called on the normal disconnection
+ * that happens when we've successfully read one complete set of weights
+ */
+function onNormalPeripheralDisconnected(err) {
   var streamKeys;
   var record;
+
+  bleState.connected = false;
+  bleState.peripheral = null;
+  if (err) {
+    logger.error('Failed to disconnect: ' + err);
+    // ignore the error.
+  }
+  
+  // Upload the record to Sparkfun.
 
   streamKeys = {
     'privateKey': properties.privateKey,
@@ -359,13 +390,18 @@ function uploadWeights() {
     'lr_kg': bleState.weights[USER_LR]
   }; 
 
-  startSendToSparkfun(streamKeys, record, function(err) {
-    if (err) {
-      logger.error('Upload error: ' + err);
-    }
-    // transfer is complete, either successfully or unsuccessfully
+  startSendToSparkfun(streamKeys, record, onSparkfunUploadComplete);
+}
+
+/*
+ * Called when the upload to data.sparkfun.com has completed.
+ */
+function onSparkfunUploadComplete(err) {
+  if (err) {
+    logger.error('Upload error: ' + err);
+  } else {
     logger.debug('Upload successful');
-  });
+  }
 }
  
 /*
@@ -438,7 +474,7 @@ function parseBleWeight(bleData) {
 function startSendToSparkfun(streamInfo, record, onCompletion) {
   var path;
   var name;
-  var req;
+  var options;	// https request options.
   var isFirst;
 
   if (!streamInfo.publicKey || streamInfo.publicKey.length == 0) {
@@ -468,7 +504,7 @@ function startSendToSparkfun(streamInfo, record, onCompletion) {
 
   //logger.debug('path: ' + path);
 
-  req = https.request({
+  options = {
     'hostname': 'data.sparkfun.com',
     'port': 443,
     'path': path,
@@ -476,26 +512,49 @@ function startSendToSparkfun(streamInfo, record, onCompletion) {
     'headers': {
       'Phant-Private-Key': streamInfo.privateKey 
     }
-  }, function(res) {
+  }
+
+  // call a separate function to reduce memory-leaking Closures
+  doHttpsRequest(options, onCompletion);
+}
+
+/*
+ * Performs an https request.
+ * options = https.request() options.
+ * onCompletion(err) = a function to call on completion.
+ *  err = if non-null, the text of the error.
+ */
+function doHttpsRequest(options, onCompletion) {
+  var req;
+
+  req = https.request(options, function(res) {
+    // all this setting to null is to avoid memory leaks from Closures
+
+    options = null;
+    req = null;
 
     res.setEncoding('utf8');
-
+  
     res.on('data', function(d) {
       if (res.statusCode > 299) {
         if (onCompletion) {
           onCompletion('HTTP code ' + res.statusCode + ': ' + d);
         }
-        return;
+      } else {
+        // Successful transfer.
+        if (onCompletion) {
+          onCompletion(null); // success
+        }
       }
-      
-      // Successful transfer.
-      if (onCompletion) {
-        onCompletion(null); // success
-      }
+      onCompletion = null;
+      res = null;
+      d = null;
     });
+    //res = null; I clearly don't understand Closures.  Adding this line causes function(d) to have res = null.
+    
   });
 
   // Sparkfun docs say put the values in the body, but it seemed to work only with values in the path.
   req.end();
-};
+}
 
