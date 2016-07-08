@@ -7,7 +7,8 @@
  *  Create a stream on http://data.sparkfun.com.
  *  cp configscalegateway.json ~
  *  Edit ~/configscalegateway.json, adding they private and public keys for your stream.
- *  node --use_strict scalegateway
+ *  ./rungateway&
+ *  tail -f logs/scalegateway.log
  *
  * Copyright (c) 2016 Bradford Needham, North Plains, Oregon, USA
  * @bneedhamia, https://www.needhamia.com
@@ -25,7 +26,6 @@ var fs = require('fs');
 var util = require('util');
 var https = require('https');
 var noble = require('noble');	// npm install noble  (see https://github.com/sandeepmistry/noble)
-var log4js = require('log4js');	// npm install log4js (see https://github.com/nomiddlename/log4js-node)
 
 /*
  * CONFIG_FILENAME = the $HOME relative local file containing our configuration. See startReadingAppConfig().
@@ -68,7 +68,6 @@ const USER_LR = 4;
 const NUM_USERS = 5;
 const USER_RESET = NUM_USERS;
 
-var logger;		// file logger.
 var properties;		// app configuration, read from CONFIG_FILENAME
 
 /*
@@ -81,6 +80,32 @@ var bleState = {
   gatt: null,		// the BLE Characteristic (gatt) that we're subscribed to.
   subscribed: false,	// if true, we're subscribed to data changes (and should unsubscribe before exiting).
   weights: []		// indexed by USER_*, non-null if we've read that user's weight.
+};
+
+/*
+ * A very simplistic console-logging set of functions.
+ */
+var logger = {
+  error: function(text) {
+    logger.common('ERROR', text);
+  },
+  warn: function(text) {
+    logger.common('WARN', text);
+  },
+  info: function(text) {
+    logger.common('INFO', text);
+  },
+  debug: function(text) {
+    logger.common('DEBUG', text);
+  },
+  moduleName: null,	// the name of this JavaScript module.
+ 
+  /*
+   * The internal log function called by logger.info(), logger.debug(), etc.
+   */
+  common: function(severity, text) {
+    console.log('[' + (new Date()).toISOString() + '] [' + severity + '] ' + logger.moduleName + ' - ' + text);
+  }
 };
 
 /*
@@ -101,17 +126,9 @@ noble.on('stateChange', function(state) {
  * Sets up all the application-global things.
  */
 function initialize() {
-  var myModuleName;		// name of my module, to appear in the log
 
-  // Set up logging to a file.
-  myModuleName = __filename.substring(__filename.lastIndexOf(path.sep) + 1);
-  log4js.loadAppender('file');
-  //log4js.addAppender(log4js.appenders.console());
-  log4js.addAppender(log4js.appenders.file('logs/scalegateway.log'), myModuleName);
-
-  logger = log4js.getLogger(myModuleName);
-  logger.setLevel('DEBUG');		// level of output, in order: DEBUG, INFO, WARN, ERROR, FATAL
-
+  // Set up console logging
+  logger.moduleName = __filename.substring(__filename.lastIndexOf(path.sep) + 1);
 
   startReadingAppConfig();
 }
@@ -514,25 +531,19 @@ function startSendToSparkfun(streamInfo, record, onCompletion) {
     }
   }
 
-  // call a separate function to reduce memory-leaking Closures
   doHttpsRequest(options, onCompletion);
 }
 
 /*
- * Performs an https request.
+ * Performs an https request, ignoring the resultng data.
  * options = https.request() options.
  * onCompletion(err) = a function to call on completion.
- *  err = if non-null, the text of the error.
+ *  err = if non-null, the text of the error.  If err == null, transfer was successful.
  */
 function doHttpsRequest(options, onCompletion) {
   var req;
 
   req = https.request(options, function(res) {
-    // all this setting to null is to avoid memory leaks from Closures
-
-    options = null;
-    req = null;
-
     res.setEncoding('utf8');
   
     res.on('data', function(d) {
@@ -546,15 +557,16 @@ function doHttpsRequest(options, onCompletion) {
           onCompletion(null); // success
         }
       }
-      onCompletion = null;
-      res = null;
-      d = null;
     });
-    //res = null; I clearly don't understand Closures.  Adding this line causes function(d) to have res = null.
     
   });
 
-  // Sparkfun docs say put the values in the body, but it seemed to work only with values in the path.
+  req.on('error', function(err) {
+    if (onCompletion) {
+      onCompletion('https transfer error: ' + err);
+    }
+  });
+
+  // Sparkfun docs say to put the values in the body, but it seemed to work only with values in the path.
   req.end();
 }
-
