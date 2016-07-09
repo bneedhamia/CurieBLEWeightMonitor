@@ -1,7 +1,7 @@
 # CurieBLEWeightMonitor
 An Arduino/Genuino 101 (Curie) Sketch to continuously report my dog's weight using load sensors
 and Bluetooth Low Energy (BLE), and a Node.js Raspberry Pi application to periodically read from the scale
-and write the data to a stream at http://data.sparkfun.com
+and write the data to a stream at http://data.sparkfun.com.  That is, it's an IoT (Internet of Things) application.
 
 The scale sends the total weight on the scale (plywood top, bed, bed cover, and possibly the dog), as well as the
 weight measured by each of the 4 Load Sensors at the corners of the scale.
