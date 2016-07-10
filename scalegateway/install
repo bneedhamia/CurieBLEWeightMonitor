@@ -1,0 +1,17 @@
+#!/bin/bash
+#OBSOLETE this was an attempt to use /etc/init.d,
+#which has been obsoleted by systemd
+# Installer for the scalegateway daemon.
+# See scalegatewayd, scalegateway.sh
+
+if [ `id -u` != 0 ] ; then
+        echo "Must run as root"
+        exit 1
+fi
+
+INIT_SH=scalegateway.sh
+cp $INIT_SH /etc/init.d
+chown root:root /etc/init.d/$INIT_SH
+chmod a+x,a+r,u+w /etc/init.d/$INIT_SH
+
+

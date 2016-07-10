@@ -1,0 +1,6 @@
+#!/bin/bash
+#OBSOLETE it was part of an attempt to use /etc/init.d,
+#which has been obsolted by systemd
+
+# Runs the Node.js Dog Scale gateway.
+node --use_strict scalegateway.js >logs/scalegateway.log 2>&1
