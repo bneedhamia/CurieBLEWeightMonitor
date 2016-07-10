@@ -1,2 +1,0 @@
-#!/bin/sh
-node --use_strict scalegateway.js >logs/scalegateway.log 2>&1

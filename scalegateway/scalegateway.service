@@ -1,0 +1,16 @@
+[Unit]
+Description=scalegateway Dog Bed Weight uploader
+Documentation=https://github.com/bneedhamia/CurieBLEWeightMonitor
+Requires=bluetooth.service
+After=bluetooth.service
+
+[Service]
+Environment=NODE_PATH=/usr/lib/nodejs:/usr/lib/node_modules:/usr/share/javascript
+ExecStart=/usr/bin/node --use_strict /home/pi/Documents/CurieBLEWeightMonitor/scalegateway/scalegateway.js
+User=pi
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=scalegateway
+
+[Install]
+WantedBy=multi-user.target

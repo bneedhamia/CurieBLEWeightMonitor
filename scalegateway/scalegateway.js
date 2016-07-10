@@ -3,12 +3,23 @@
  * measurements from the Curie BLE Weight scale to the cloud.
  * See https://github.com/bneedhamia/CurieBLEWeightMonitor
  *
- * To Run:
+ * To test-run:
  *  Create a stream on http://data.sparkfun.com.
- *  cp configscalegateway.json ~
- *  Edit ~/configscalegateway.json, adding they private and public keys for your stream.
- *  ./rungateway&
- *  tail -f logs/scalegateway.log
+ *  cp scalegateway.cfg ~
+ *  Edit ~/scalegateway.cfg, adding the private and public keys for your stream.
+ *  node --use_strict scalegateway.js
+ * To install as a service so it starts on boot:
+ *  Do a test-run (see above) to verify that it works.
+ *  ./install
+ *  reboot (or just say sudo systemctl start scalegateway.service)
+ *
+ * Useful commands:
+ *  sudo systemctl stop scalegateway.service
+ *  sudo systemctl disable scalegateway.service (that will prevent it from starting on boot)
+ *  sudo systemctl enable scalegateway.service (undoes the disable)
+ *  sudo systemctl status scalegateway.service (to see whether it's running
+ *  grep scalegateway /var/log/syslog (to find output from scalegateway.service)
+ * 
  *
  * Copyright (c) 2016 Bradford Needham, North Plains, Oregon, USA
  * @bneedhamia, https://www.needhamia.com
@@ -30,7 +41,7 @@ var noble = require('noble');	// npm install noble  (see https://github.com/sand
 /*
  * CONFIG_FILENAME = the $HOME relative local file containing our configuration. See startReadingAppConfig().
  */
-const CONFIG_FILENAME = 'configscalegateway.json';
+const CONFIG_FILENAME = 'scalegateway.cfg';
 
 /*
  * WEIGHT_SERVICE_UUID = standard BLE Service UUID for a weight scale service.
@@ -104,7 +115,9 @@ var logger = {
    * The internal log function called by logger.info(), logger.debug(), etc.
    */
   common: function(severity, text) {
-    console.log('[' + (new Date()).toISOString() + '] [' + severity + '] ' + logger.moduleName + ' - ' + text);
+    // console.log('[' + (new Date()).toISOString() + '] [' + severity + '] ' + logger.moduleName + ' - ' + text);
+    // the logger below is for when we run as a service: time and module are provided by syslog
+    console.log(severity + ' ' + text);
   }
 };
 
@@ -117,7 +130,7 @@ noble.on('stateChange', function(state) {
     initialize();	// set up our program
   } else {
     logger.error('BLE adapter turned off unexpectedly. Exiting.');
-    exit(1);
+    process.exit(1);
   }
 });
 
@@ -161,26 +174,26 @@ function startReadingAppConfig() {
     logger.info('Application Properties');
     if (!properties.bleLocalName || properties.bleLocalName.length == 0) {
       logger.error('Missing or blank bleLocalName in ' + fName);
-      process.exit();
+      process.exit(1);
     }
     logger.info('  LocalName: ' + properties.bleLocalName);
 
     if (!properties.publicKey || properties.publicKey.length == 0) {
       logger.error('Missing or blank publicKey in ' + fName);
-      process.exit();
+      process.exit(1);
     }
     logger.info('  publicKey: ' + properties.publicKey);
 
     if (!properties.privateKey || properties.privateKey.length == 0) {
       logger.error('Missing or blank privateKey in ' + fName);
-      process.exit();
+      process.exit(1);
     }
     logger.info('  privateKey: ' + '<elided>');
 
     if (!properties.uploadSecs || !Number.isInteger(properties.uploadSecs)
         || properties.uploadSecs < MIN_SPARKFUN_UPLOAD_SECS) {
       logger.error('Missing or out-of-range uploadSecs in ' + fName + '. uploadSecs: ' + properties.uploadSecs);
-      process.exit();
+      process.exit(1);
     }
     logger.info('  uploadSecs: ' + properties.uploadSecs);
 
@@ -271,7 +284,7 @@ function onServicesDiscovered(err, services) {
     bleState.peripheral.disconnect(function(err) {
       bleState.connected = false;
       bleState.peripheral = null;
-      exit(1);
+      process.exit(1);
     });
     return; // to wait for the disconnect to complete
   }
@@ -280,7 +293,7 @@ function onServicesDiscovered(err, services) {
     bleState.peripheral.disconnect(function(err) {
       bleState.connected = false;
       bleState.peripheral = null;
-      exit(1);
+      process.exit(1);
     });
     return; // to wait for the disconnect to complete
   }
@@ -304,7 +317,7 @@ function onCharacteristicsDiscovered(err, gatts) {
     bleState.peripheral.disconnect(function(err) {
       bleState.connected = false;
       bleState.peripheral = null;
-      exit(1);
+      process.exit(1);
     });
     return; // to wait for the disconnect to complete
   }
@@ -313,7 +326,7 @@ function onCharacteristicsDiscovered(err, gatts) {
     bleState.peripheral.disconnect(function(err) {
       bleState.connected = false;
       bleState.peripheral = null;
-      exit(1);
+      process.exit(1);
     });
     return; // to wait for the disconnect to complete
   }
@@ -339,7 +352,7 @@ function onData(data, isNotify) {
   var userWeight;	// userId and weight, returned by parseBleWeight()
 
   userWeight = parseBleWeight(data);
-  logger.info('User ' + userWeight.userId + ': ' + userWeight.weightKg + ' kg');
+  //logger.info('User ' + userWeight.userId + ': ' + userWeight.weightKg + ' kg');
 
   /*
    * Weights are reported in order: USER_TOTAL first, then the others.
@@ -414,10 +427,16 @@ function onNormalPeripheralDisconnected(err) {
  * Called when the upload to data.sparkfun.com has completed.
  */
 function onSparkfunUploadComplete(err) {
+  var str = '';
+  var i;
+
   if (err) {
     logger.error('Upload error: ' + err);
   } else {
-    logger.debug('Upload successful');
+    for (i = 0; i < NUM_USERS; ++i) {
+      str = str + ' ' + bleState.weights[i];
+    }
+    logger.debug('Upload successful. User 0-4 weights:' + str);
   }
 }
  

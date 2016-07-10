@@ -1,0 +1,6 @@
+This directory contains the files for the Raspberry Pi Node.js script
+that reads the weights from the Arduino 101 scale, via BLE, and uploads them
+to data.sparkfun.com via WiFi.
+
+See the individual files for more information.
+

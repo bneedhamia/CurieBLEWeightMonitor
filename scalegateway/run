@@ -1,0 +1,4 @@
+#!/bin/sh
+# Run this command to test-run the gateway
+sudo systemctl stop scalegateway.service || true
+node --use_strict scalegateway.js

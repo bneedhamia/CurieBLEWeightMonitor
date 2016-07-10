@@ -147,3 +147,15 @@ $ node test (that should output some info about the BLE device, its services, an
 test.js in that noble folder is a good example of how to use noble to communicate
 with a BLE device (actually, I found the documentation at the Noble site to be more useful).
 
+Clean up some space:
+cd ~
+rm -rf bluez-5.40 (or whatever your bluez version is) These files are no longer needed after bluez installation.
+
+Install scalegateway.js (the Dog Bed Weight Scale cloud uploader) as a service.
+This will ensure that the uploader will start on boot.
+cd ~/Documents/CurieBleWeightScale/scalegateway
+cp scalegateway.cfg ~
+Edit ~/scalegateway.cfg, adding the keys from your data.sparkfun.com stream to upload to.
+./install
+Select menu/shutdown/reboot, or sudo systemctl start scalegateway.service
+grep scalegateway /var/log/syslog to see output from scalegateway.
