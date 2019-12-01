@@ -1,4 +1,7 @@
 # CurieBLEWeightMonitor
+
+NOTE: Intel discontinued the Arduino 101 in 2017. Because of the end-of-life of the Arduino 101, this project is obsolete.
+
 An Arduino/Genuino 101 (Curie) Sketch to continuously report my dog's weight using load sensors
 and Bluetooth Low Energy (BLE), and a Node.js Raspberry Pi application to periodically read from the scale
 and write the data to a stream at http://data.sparkfun.com.  That is, it's an IoT (Internet of Things) application.
